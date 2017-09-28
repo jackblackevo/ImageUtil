@@ -33,14 +33,10 @@ public class ImageUtil {
     private static final String RESIZE_PREFIX = "resize_";
     private static final String COMBINE_PREFIX = "combine_";
 
-    private List<File> imageFileList;
-    private List<String> imageTypeList;
-    private List<BufferedImage[]> bufferedImageList;
+    private List<ImageData> imageDataList;
 
-    private Builder(List<File> imageFileList, List<String> imagesTypeList, List<BufferedImage[]> bufferedImageList) {
-      this.imageFileList = imageFileList;
-      this.imageTypeList = imagesTypeList;
-      this.bufferedImageList = bufferedImageList;
+    private Builder(List<ImageData> imageDataList) {
+      this.imageDataList = imageDataList;
     }
 
     public Builder resize(int width, int height) throws IOException {
@@ -48,22 +44,14 @@ public class ImageUtil {
         return this;
       }
 
-      List<File> newImageFileList = new ArrayList<>();
-      List<String> newImageTypeList = new ArrayList<>();
-      List<BufferedImage[]> newBufferedImageList = new ArrayList<>();
+      List<ImageData> newImageDataList = new ArrayList<>();
 
-      Iterator<File> imageFileListIterator = imageFileList.iterator();
-      Iterator<String> imageTypeIterator = imageTypeList.iterator();
-      Iterator<BufferedImage[]> bufferedImageIterator = bufferedImageList.iterator();
-      while (bufferedImageIterator.hasNext()) {
-        File imageFile = imageFileListIterator.next();
-        String imageType = imageTypeIterator.next();
-        BufferedImage[] imagePages = bufferedImageIterator.next();
-
-        File resizedImageFile = new File(imageFile.getParent() + File.separator + RESIZE_PREFIX + imageFile.getName());
-        newImageFileList.add(resizedImageFile);
-
-        newImageTypeList.add(imageType);
+      Iterator<ImageData> imageDetailListIterator = imageDataList.iterator();
+      while (imageDetailListIterator.hasNext()) {
+        ImageData imageData = imageDetailListIterator.next();
+        String fileName = imageData.getFileName();
+        String imageType = imageData.getImageType();
+        BufferedImage[] imagePages = imageData.getImagePages();
 
         int numImagePages = imagePages.length;
         BufferedImage[] newImagePages = new BufferedImage[numImagePages];
@@ -76,28 +64,23 @@ public class ImageUtil {
 
           newImagePages[i] = resizedImagePage;
         }
-        newBufferedImageList.add(newImagePages);
+
+        ImageData newImageData = new ImageData(RESIZE_PREFIX + fileName, imageType, newImagePages);
+        newImageDataList.add(newImageData);
       }
 
-      return new Builder(newImageFileList, newImageTypeList, newBufferedImageList);
+      return new Builder(newImageDataList);
     }
 
     public Builder rotate(Orientation orientation) {
-      List<File> newImageFileList = new ArrayList<>();
-      List<String> newImageTypeList = new ArrayList<>();
-      List<BufferedImage[]> newBufferedImageList = new ArrayList<>();
+      List<ImageData> newImageDataList = new ArrayList<>();
 
-      Iterator<File> imageFileListIterator = imageFileList.iterator();
-      Iterator<String> imageTypeIterator = imageTypeList.iterator();
-      Iterator<BufferedImage[]> bufferedImageIterator = bufferedImageList.iterator();
-      while (bufferedImageIterator.hasNext()) {
-        File imageFile = imageFileListIterator.next();
-        String imageType = imageTypeIterator.next();
-        BufferedImage[] imagePages = bufferedImageIterator.next();
-
-        newImageFileList.add(imageFile);
-
-        newImageTypeList.add(imageType);
+      Iterator<ImageData> imageDetailListIterator = imageDataList.iterator();
+      while (imageDetailListIterator.hasNext()) {
+        ImageData imageData = imageDetailListIterator.next();
+        String fileName = imageData.getFileName();
+        String imageType = imageData.getImageType();
+        BufferedImage[] imagePages = imageData.getImagePages();
 
         int numImagePages = imagePages.length;
         BufferedImage[] newImagePages = new BufferedImage[numImagePages];
@@ -124,10 +107,12 @@ public class ImageUtil {
             newImagePages[i] = imagePage;
           }
         }
-        newBufferedImageList.add(newImagePages);
+
+        ImageData newImageData = new ImageData(fileName, imageType, newImagePages);
+        newImageDataList.add(newImageData);
       }
 
-      return new Builder(newImageFileList, newImageTypeList, newBufferedImageList);
+      return new Builder(newImageDataList);
     }
 
     public File writeToMultipageTIFF(String destLocation) throws IOException {
@@ -162,9 +147,9 @@ public class ImageUtil {
       }
 
       imageWriter.prepareWriteSequence(null);
-      Iterator<BufferedImage[]> imageIterator = bufferedImageList.iterator();
-      while (imageIterator.hasNext()) {
-        BufferedImage[] imagePages = imageIterator.next();
+      Iterator<ImageData> imageDetailIterator = imageDataList.iterator();
+      while (imageDetailIterator.hasNext()) {
+        BufferedImage[] imagePages = imageDetailIterator.next().getImagePages();
         for (int i = 0; i < imagePages.length; i++) {
           IIOImage iioImage = new IIOImage(imagePages[i], null, null);
           imageWriter.writeToSequence(iioImage, params);
@@ -203,61 +188,57 @@ public class ImageUtil {
       }
 
       List<File> newImageFileList = new ArrayList<>();
-//      List<String> newImageTypeList = new ArrayList<>();
-//      List<BufferedImage> newBufferedImageList = new ArrayList<>();
+//      List<ImageData> newImageDetailList = new ArrayList<>();
 
-      Iterator<File> imageFileListIterator = imageFileList.iterator();
-      Iterator<String> imageTypeIterator = imageTypeList.iterator();
-      Iterator<BufferedImage[]> bufferedImageIterator = bufferedImageList.iterator();
-      while (bufferedImageIterator.hasNext()) {
-        File imageFile = imageFileListIterator.next();
-        String targetType = imageTypeIterator.next();
-        BufferedImage[] imagePages = bufferedImageIterator.next();
+      Iterator<ImageData> imageDetailListIterator = imageDataList.iterator();
+      while (imageDetailListIterator.hasNext()) {
+        ImageData imageData = imageDetailListIterator.next();
+        String imageType = imageData.getImageType();
+        BufferedImage[] imagePages = imageData.getImagePages();
 
-        String fileName;
-        if (fileType == null || "".equals(fileType)) {
-          fileName = imageFile.getName();
-        } else {
-          targetType = fileType;
-          fileName = imageFile.getName().replaceFirst("[^.]+$", targetType.toLowerCase());
+        String fileNameWithExtension;
+        if (fileType != null && !"".equals(fileType)) {
+          imageType = fileType;
         }
+        fileNameWithExtension = imageData.getFileName() + File.separator + imageType;
 
         int numImagePages = imagePages.length;
-        File destTIFFFile = new File(dest.getPath() + File.separator + OUTPUT_PREFIX + fileName);
-        ImageWriter fileWriter = getImageWriter(targetType, ImageIO.createImageOutputStream(destTIFFFile));
+        File destFile = new File(dest.getPath() + File.separator + OUTPUT_PREFIX + fileNameWithExtension);
+        ImageWriter fileWriter = getImageWriter(imageType, ImageIO.createImageOutputStream(destFile));
 //        ByteArrayOutputStream baos = new ByteArrayOutputStream();
 //        ImageWriter baosWriter = getImageWriter(targetType, ImageIO.createImageOutputStream(baos));
-        for (int i = 0; i < numImagePages; i++) {
-          BufferedImage imagePage = imagePages[i];
 
-          IIOImage iioImage = new IIOImage(imagePage, null, null);
-
+        ImageWriteParam fileWriterParam = fileWriter.getDefaultWriteParam();
+        if ("TIFF".equalsIgnoreCase(fileType) && fileWriterParam.canWriteCompressed()) {
+          fileWriterParam.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+          fileWriterParam.setCompressionType("JPEG");
+          if (quality >= 0 && quality <= 1) {
+            fileWriterParam.setCompressionQuality(quality);
+          }
+        }
 //        ImageWriteParam baosWriteParam = baosWriter.getDefaultWriteParam();
 //        if ("TIFF".equalsIgnoreCase(fileType) && baosWriteParam.canWriteCompressed()) {
 //          baosWriteParam.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
 //          baosWriteParam.setCompressionType("JPEG");
 //        }
-//        baosWriter.writeToSequence(null, iioImage, baosWriteParam);
 
-          ImageWriteParam fileWriterParam = fileWriter.getDefaultWriteParam();
-          if ("TIFF".equalsIgnoreCase(fileType) && fileWriterParam.canWriteCompressed()) {
-            fileWriterParam.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
-            fileWriterParam.setCompressionType("JPEG");
-            if (quality >= 0 && quality <= 1) {
-              fileWriterParam.setCompressionQuality(quality);
-            }
-          }
+        for (int i = 0; i < numImagePages; i++) {
+          BufferedImage imagePage = imagePages[i];
+
+          IIOImage iioImage = new IIOImage(imagePage, null, null);
           fileWriter.writeToSequence(iioImage, fileWriterParam);
+//        baosWriter.writeToSequence(null, iioImage, baosWriteParam);
         }
         fileWriter.endWriteSequence();
+//        baosWriter.endWriteSequence();
 
-        newImageFileList.add(destTIFFFile);
-//
-//        newImageTypeList.add(targetType);
-//
+        newImageFileList.add(destFile);
+
 //        InputStream in = new ByteArrayInputStream(baos.toByteArray());
 //        BufferedImage outputImage = ImageIO.read(in);
-//        newBufferedImageList.add(outputImage);
+//
+//        ImageData newImageDetail = new ImageData(destTIFFFile, imageType, outputImage);
+//        newImageDetailList.add(newImageDetail);
       }
 
 //      return new Builder(newImageFileList, newImageTypeList, newBufferedImageList);
@@ -312,25 +293,19 @@ public class ImageUtil {
     ) {
       PDFRenderer pdfRenderer = new PDFRenderer(document);
 
-      List<File> newImageFileList = new ArrayList<>();
-      List<String> newImageTypeList = new ArrayList<>();
-      List<BufferedImage[]> newBufferedImageList = new ArrayList<>();
+      List<ImageData> newImageDataList = new ArrayList<>();
 
       int numPDFPages = document.getNumberOfPages();
       BufferedImage[] imagePages = new BufferedImage[numPDFPages];
       for (int i = 0; i < numPDFPages; i++) {
-        int pageNo = i + 1;
-        File imageFile = new File(PDFFile.getParent() + File.separator + PDFFile.getName().replaceFirst("\\.[^.]+$", "_p" + pageNo + ".tiff"));
-        newImageFileList.add(imageFile);
-
-        newImageTypeList.add("TIFF");
-
         BufferedImage imagePage = pdfRenderer.renderImageWithDPI(i, 150, ImageType.RGB);
         imagePages[i] = imagePage;
       }
-      newBufferedImageList.add(imagePages);
 
-      imagesDetail = new Builder(newImageFileList, newImageTypeList, newBufferedImageList);
+      ImageData newImageData = new ImageData(PDFFile.getName().replaceFirst("\\.[^.]+$", ""), "TIFF", imagePages);
+      newImageDataList.add(newImageData);
+
+      imagesDetail = new Builder(newImageDataList);
     } catch (InvalidPasswordException e) {
       e.printStackTrace();
 
@@ -372,14 +347,13 @@ public class ImageUtil {
   private static List<String[]> convertImageToBase64String(Builder imagesDetail) {
     List<String[]> base64StringList = new ArrayList<>();
 
-    List<BufferedImage[]> bufferedImageList = imagesDetail.bufferedImageList;
-    List<String> imageTypeList = imagesDetail.imageTypeList;
+    List<ImageData> imageDataList = new ArrayList<>();
 
-    Iterator<BufferedImage[]> bufferedImageIterator = bufferedImageList.iterator();
-    Iterator<String> imageTypeIterator = imageTypeList.iterator();
-    while (bufferedImageIterator.hasNext()) {
-      BufferedImage[] imagePages = bufferedImageIterator.next();
-      String imageType = imageTypeIterator.next();
+    Iterator<ImageData> imageDetailListIterator = imageDataList.iterator();
+    while (imageDetailListIterator.hasNext()) {
+      ImageData imageData = imageDetailListIterator.next();
+      String imageType = imageData.getImageType();
+      BufferedImage[] imagePages = imageData.getImagePages();
 
       int numImagePages = imagePages.length;
       String[] base64StringPages = new String[numImagePages];
@@ -409,9 +383,7 @@ public class ImageUtil {
   }
 
   private static Builder getImagesDetail(List<File> fileList) throws IOException {
-    List<File> imageFileList = new ArrayList<>();
-    List<String> imageTypeList = new ArrayList<>();
-    List<BufferedImage[]> bufferedImageList = new ArrayList<>();
+    List<ImageData> imageDataList = new ArrayList<>();
 
     Iterator<File> filesIterator = fileList.iterator();
     while (filesIterator.hasNext()) {
@@ -423,14 +395,9 @@ public class ImageUtil {
           }
           Builder tempImagesDetail = getImagesDetail(imageFile.listFiles());
 
-          imageFileList.addAll(tempImagesDetail.imageFileList);
-          imageTypeList.addAll(tempImagesDetail.imageTypeList);
-          bufferedImageList.addAll(tempImagesDetail.bufferedImageList);
+          imageDataList.addAll(tempImagesDetail.imageDataList);
         } else if (imageFile.exists()) {
           ImageReader imageReader = getImageReader(imageFile);
-
-          imageFileList.add(imageFile);
-          imageTypeList.add(imageReader.getFormatName());
 
           // 取得多頁圖片頁數
           int numImagePages = imageReader.getNumImages(true);
@@ -439,7 +406,9 @@ public class ImageUtil {
             BufferedImage imagePage = imageReader.read(i);
             imagePages[i] = imagePage;
           }
-          bufferedImageList.add(imagePages);
+
+          ImageData imageData = new ImageData(imageFile.getName().replaceFirst("\\.[^.]+$", ""), imageReader.getFormatName(), imagePages);
+          imageDataList.add(imageData);
         }
       } catch (UnsupportedOperationException e) {
         System.out.println(e.getMessage() + " Skipped file: " + imageFile.getPath());
@@ -448,11 +417,11 @@ public class ImageUtil {
       }
     }
 
-    if (imageFileList.isEmpty()) {
+    if (imageDataList.isEmpty()) {
       throw new UnsupportedOperationException("No image!");
     }
 
-    return new Builder(imageFileList, imageTypeList, bufferedImageList);
+    return new Builder(imageDataList);
   }
 
   private static ImageReader getImageReader(File file) throws IOException {
