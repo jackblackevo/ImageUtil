@@ -375,7 +375,7 @@ public class ImageUtil {
           imageFileList.addAll(tempImagesDetail.imageFileList);
           imageTypeList.addAll(tempImagesDetail.imageTypeList);
           bufferedImageList.addAll(tempImagesDetail.bufferedImageList);
-        } else {
+        } else if (imageFile.exists()) {
           ImageReader imageReader = getImageReader(imageFile);
 
           imageFileList.add(imageFile);
