@@ -184,7 +184,6 @@ public class ImageUtil {
       }
 
       List<File> newImageFileList = new ArrayList<>();
-//      List<ImageData> newImageDetailList = new ArrayList<>();
 
       Iterator<ImageData> imageDetailListIterator = imageDataList.iterator();
       while (imageDetailListIterator.hasNext()) {
@@ -202,18 +201,11 @@ public class ImageUtil {
         if (isTIFF || "GIF".equalsIgnoreCase(imageType)) {
           File destFile = new File(dest.getPath() + File.separator + OUTPUT_PREFIX + imageData.getFileName() + "." + imageType);
           ImageWriter fileWriter = getImageWriter(imageType, ImageIO.createImageOutputStream(destFile));
-//        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-//        ImageWriter baosWriter = getImageWriter(targetType, ImageIO.createImageOutputStream(baos));
 
           ImageWriteParam fileWriterParam = fileWriter.getDefaultWriteParam();
           if (isTIFF && fileWriterParam.canWriteCompressed()) {
             setImageWriteParamCompression(fileWriterParam, quality);
           }
-//        ImageWriteParam baosWriteParam = baosWriter.getDefaultWriteParam();
-//        if ("TIFF".equalsIgnoreCase(imageType) && baosWriteParam.canWriteCompressed()) {
-//          baosWriteParam.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
-//          baosWriteParam.setCompressionType("JPEG");
-//        }
 
           fileWriter.prepareWriteSequence(null);
           for (int i = 0; i < numImagePages; i++) {
@@ -221,10 +213,8 @@ public class ImageUtil {
 
             IIOImage iioImage = new IIOImage(imagePage, null, null);
             fileWriter.writeToSequence(iioImage, fileWriterParam);
-//        baosWriter.writeToSequence(null, iioImage, baosWriteParam);
           }
           fileWriter.endWriteSequence();
-//        baosWriter.endWriteSequence();
 
           newImageFileList.add(destFile);
         } else {
@@ -250,15 +240,8 @@ public class ImageUtil {
             newImageFileList.add(pageDestFile);
           }
         }
-
-//        InputStream in = new ByteArrayInputStream(baos.toByteArray());
-//        BufferedImage outputImage = ImageIO.read(in);
-//
-//        ImageData newImageDetail = new ImageData(destTIFFFile, imageType, outputImage);
-//        newImageDetailList.add(newImageDetail);
       }
 
-//      return new Builder(newImageFileList, newImageTypeList, newBufferedImageList);
       return newImageFileList;
     }
 
