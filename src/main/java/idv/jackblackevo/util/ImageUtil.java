@@ -140,11 +140,7 @@ public class ImageUtil {
       ImageWriter imageWriter = getImageWriter("TIFF", ImageIO.createImageOutputStream(newFile));
 
       ImageWriteParam params = imageWriter.getDefaultWriteParam();
-      params.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
-      params.setCompressionType("JPEG");
-      if (quality >= 0 && quality <= 1) {
-        params.setCompressionQuality(quality);
-      }
+      setImageWriteParamCompression(params, quality);
 
       imageWriter.prepareWriteSequence(null);
       Iterator<ImageData> imageDetailIterator = imageDataList.iterator();
@@ -196,43 +192,64 @@ public class ImageUtil {
         String imageType = imageData.getImageType();
         BufferedImage[] imagePages = imageData.getImagePages();
 
-        String fileNameWithExtension;
         if (fileType != null && !"".equals(fileType)) {
           imageType = fileType;
         }
-        fileNameWithExtension = imageData.getFileName() + File.separator + imageType;
 
         int numImagePages = imagePages.length;
-        File destFile = new File(dest.getPath() + File.separator + OUTPUT_PREFIX + fileNameWithExtension);
-        ImageWriter fileWriter = getImageWriter(imageType, ImageIO.createImageOutputStream(destFile));
+
+        boolean isTIFF = "TIF".equalsIgnoreCase(imageType) || "TIFF".equalsIgnoreCase(imageType);
+        if (isTIFF || "GIF".equalsIgnoreCase(imageType)) {
+          File destFile = new File(dest.getPath() + File.separator + OUTPUT_PREFIX + imageData.getFileName() + "." + imageType);
+          ImageWriter fileWriter = getImageWriter(imageType, ImageIO.createImageOutputStream(destFile));
 //        ByteArrayOutputStream baos = new ByteArrayOutputStream();
 //        ImageWriter baosWriter = getImageWriter(targetType, ImageIO.createImageOutputStream(baos));
 
-        ImageWriteParam fileWriterParam = fileWriter.getDefaultWriteParam();
-        if ("TIFF".equalsIgnoreCase(fileType) && fileWriterParam.canWriteCompressed()) {
-          fileWriterParam.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
-          fileWriterParam.setCompressionType("JPEG");
-          if (quality >= 0 && quality <= 1) {
-            fileWriterParam.setCompressionQuality(quality);
+          ImageWriteParam fileWriterParam = fileWriter.getDefaultWriteParam();
+          if (isTIFF && fileWriterParam.canWriteCompressed()) {
+            setImageWriteParamCompression(fileWriterParam, quality);
           }
-        }
 //        ImageWriteParam baosWriteParam = baosWriter.getDefaultWriteParam();
-//        if ("TIFF".equalsIgnoreCase(fileType) && baosWriteParam.canWriteCompressed()) {
+//        if ("TIFF".equalsIgnoreCase(imageType) && baosWriteParam.canWriteCompressed()) {
 //          baosWriteParam.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
 //          baosWriteParam.setCompressionType("JPEG");
 //        }
 
-        for (int i = 0; i < numImagePages; i++) {
-          BufferedImage imagePage = imagePages[i];
+          fileWriter.prepareWriteSequence(null);
+          for (int i = 0; i < numImagePages; i++) {
+            BufferedImage imagePage = imagePages[i];
 
-          IIOImage iioImage = new IIOImage(imagePage, null, null);
-          fileWriter.writeToSequence(iioImage, fileWriterParam);
+            IIOImage iioImage = new IIOImage(imagePage, null, null);
+            fileWriter.writeToSequence(iioImage, fileWriterParam);
 //        baosWriter.writeToSequence(null, iioImage, baosWriteParam);
-        }
-        fileWriter.endWriteSequence();
+          }
+          fileWriter.endWriteSequence();
 //        baosWriter.endWriteSequence();
 
-        newImageFileList.add(destFile);
+          newImageFileList.add(destFile);
+        } else {
+          for (int i = 0; i < numImagePages; i++) {
+            String page = "_p" + (i + 1);
+            if (numImagePages == 1) {
+              page = "";
+            }
+
+            File pageDestFile = new File(dest.getPath() + File.separator + OUTPUT_PREFIX + imageData.getFileName() + page + "." + imageType);
+            ImageWriter pageFileWriter = getImageWriter(imageType, ImageIO.createImageOutputStream(pageDestFile));
+
+            ImageWriteParam pageFileWriterParam = pageFileWriter.getDefaultWriteParam();
+            if (isTIFF && pageFileWriterParam.canWriteCompressed()) {
+              setImageWriteParamCompression(pageFileWriterParam, quality);
+            }
+
+            BufferedImage imagePage = imagePages[i];
+
+            IIOImage iioImage = new IIOImage(imagePage, null, null);
+            pageFileWriter.write(null, iioImage, pageFileWriterParam);
+
+            newImageFileList.add(pageDestFile);
+          }
+        }
 
 //        InputStream in = new ByteArrayInputStream(baos.toByteArray());
 //        BufferedImage outputImage = ImageIO.read(in);
@@ -472,6 +489,14 @@ public class ImageUtil {
     imageWriter.setOutput(ios);
 
     return imageWriter;
+  }
+
+  private static void setImageWriteParamCompression(ImageWriteParam writerParam, float quality) {
+    writerParam.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+    writerParam.setCompressionType("JPEG");
+    if (quality >= 0 && quality <= 1) {
+      writerParam.setCompressionQuality(quality);
+    }
   }
 
   private static Dimension getScaledDimension(Dimension imageSize, Dimension boundary) {
