@@ -35,9 +35,9 @@ public class ImageUtil {
 
     private List<File> imageFileList;
     private List<String> imageTypeList;
-    private List<BufferedImage> bufferedImageList;
+    private List<BufferedImage[]> bufferedImageList;
 
-    private Builder(List<File> imageFileList, List<String> imagesTypeList, List<BufferedImage> bufferedImageList) {
+    private Builder(List<File> imageFileList, List<String> imagesTypeList, List<BufferedImage[]> bufferedImageList) {
       this.imageFileList = imageFileList;
       this.imageTypeList = imagesTypeList;
       this.bufferedImageList = bufferedImageList;
@@ -50,26 +50,33 @@ public class ImageUtil {
 
       List<File> newImageFileList = new ArrayList<>();
       List<String> newImageTypeList = new ArrayList<>();
-      List<BufferedImage> newBufferedImageList = new ArrayList<>();
+      List<BufferedImage[]> newBufferedImageList = new ArrayList<>();
 
       Iterator<File> imageFileListIterator = imageFileList.iterator();
       Iterator<String> imageTypeIterator = imageTypeList.iterator();
-      Iterator<BufferedImage> bufferedImageIterator = bufferedImageList.iterator();
+      Iterator<BufferedImage[]> bufferedImageIterator = bufferedImageList.iterator();
       while (bufferedImageIterator.hasNext()) {
         File imageFile = imageFileListIterator.next();
         String imageType = imageTypeIterator.next();
-        BufferedImage image = bufferedImageIterator.next();
+        BufferedImage[] imagePages = bufferedImageIterator.next();
 
         File resizedImageFile = new File(imageFile.getParent() + File.separator + RESIZE_PREFIX + imageFile.getName());
         newImageFileList.add(resizedImageFile);
 
         newImageTypeList.add(imageType);
 
-        Dimension newImageSize = getScaledDimension(new Dimension(image.getWidth(), image.getHeight()), new Dimension(width, height));
-        BufferedImageOp reSampler = new ResampleOp(newImageSize.width, newImageSize.height, ResampleOp.FILTER_LANCZOS);
-        BufferedImage resizedImage = reSampler.filter(image, null);
+        int numImagePages = imagePages.length;
+        BufferedImage[] newImagePages = new BufferedImage[numImagePages];
+        for (int i = 0; i < numImagePages; i++) {
+          BufferedImage imagePage = imagePages[i];
 
-        newBufferedImageList.add(resizedImage);
+          Dimension newImageSize = getScaledDimension(new Dimension(imagePage.getWidth(), imagePage.getHeight()), new Dimension(width, height));
+          BufferedImageOp reSampler = new ResampleOp(newImageSize.width, newImageSize.height, ResampleOp.FILTER_LANCZOS);
+          BufferedImage resizedImagePage = reSampler.filter(imagePage, null);
+
+          newImagePages[i] = resizedImagePage;
+        }
+        newBufferedImageList.add(newImagePages);
       }
 
       return new Builder(newImageFileList, newImageTypeList, newBufferedImageList);
@@ -78,39 +85,46 @@ public class ImageUtil {
     public Builder rotate(Orientation orientation) {
       List<File> newImageFileList = new ArrayList<>();
       List<String> newImageTypeList = new ArrayList<>();
-      List<BufferedImage> newBufferedImageList = new ArrayList<>();
+      List<BufferedImage[]> newBufferedImageList = new ArrayList<>();
 
       Iterator<File> imageFileListIterator = imageFileList.iterator();
       Iterator<String> imageTypeIterator = imageTypeList.iterator();
-      Iterator<BufferedImage> bufferedImageIterator = bufferedImageList.iterator();
+      Iterator<BufferedImage[]> bufferedImageIterator = bufferedImageList.iterator();
       while (bufferedImageIterator.hasNext()) {
         File imageFile = imageFileListIterator.next();
         String imageType = imageTypeIterator.next();
-        BufferedImage image = bufferedImageIterator.next();
+        BufferedImage[] imagePages = bufferedImageIterator.next();
 
         newImageFileList.add(imageFile);
 
         newImageTypeList.add(imageType);
 
-        int rotate;
-        if (orientation == PORTRAIT) {
-          rotate = image.getWidth() > image.getHeight() ? 90 : 0;
-        } else {
-          rotate = image.getWidth() < image.getHeight() ? 90 : 0;
+        int numImagePages = imagePages.length;
+        BufferedImage[] newImagePages = new BufferedImage[numImagePages];
+        for (int i = 0; i < numImagePages; i++) {
+          BufferedImage imagePage = imagePages[i];
+
+          int rotate;
+          if (orientation == PORTRAIT) {
+            rotate = imagePage.getWidth() > imagePage.getHeight() ? 90 : 0;
+          } else {
+            rotate = imagePage.getWidth() < imagePage.getHeight() ? 90 : 0;
+          }
+
+          if (rotate != 0) {
+            AffineTransform affine = new AffineTransform();
+            affine.setToRotation(Math.toRadians(rotate), imagePage.getHeight() / 2, imagePage.getHeight() / 2);
+
+            AffineTransformOp op = new AffineTransformOp(affine, AffineTransformOp.TYPE_BICUBIC);
+            BufferedImage rotatedImagePage = new BufferedImage(imagePage.getHeight(), imagePage.getWidth(), imagePage.getType());
+            op.filter(imagePage, rotatedImagePage);
+
+            newImagePages[i] = rotatedImagePage;
+          } else {
+            newImagePages[i] = imagePage;
+          }
         }
-
-        if (rotate != 0) {
-          AffineTransform affine = new AffineTransform();
-          affine.setToRotation(Math.toRadians(rotate), image.getHeight() / 2, image.getHeight() / 2);
-
-          AffineTransformOp op = new AffineTransformOp(affine, AffineTransformOp.TYPE_BICUBIC);
-          BufferedImage rotatedImage = new BufferedImage(image.getHeight(), image.getWidth(), image.getType());
-          op.filter(image, rotatedImage);
-
-          newBufferedImageList.add(rotatedImage);
-        } else {
-          newBufferedImageList.add(image);
-        }
+        newBufferedImageList.add(newImagePages);
       }
 
       return new Builder(newImageFileList, newImageTypeList, newBufferedImageList);
@@ -148,10 +162,13 @@ public class ImageUtil {
       }
 
       imageWriter.prepareWriteSequence(null);
-      Iterator<BufferedImage> imageIterator = bufferedImageList.iterator();
+      Iterator<BufferedImage[]> imageIterator = bufferedImageList.iterator();
       while (imageIterator.hasNext()) {
-        IIOImage iioImage = new IIOImage(imageIterator.next(), null, null);
-        imageWriter.writeToSequence(iioImage, params);
+        BufferedImage[] imagePages = imageIterator.next();
+        for (int i = 0; i < imagePages.length; i++) {
+          IIOImage iioImage = new IIOImage(imagePages[i], null, null);
+          imageWriter.writeToSequence(iioImage, params);
+        }
       }
       imageWriter.endWriteSequence();
 
@@ -191,11 +208,11 @@ public class ImageUtil {
 
       Iterator<File> imageFileListIterator = imageFileList.iterator();
       Iterator<String> imageTypeIterator = imageTypeList.iterator();
-      Iterator<BufferedImage> bufferedImageIterator = bufferedImageList.iterator();
+      Iterator<BufferedImage[]> bufferedImageIterator = bufferedImageList.iterator();
       while (bufferedImageIterator.hasNext()) {
         File imageFile = imageFileListIterator.next();
         String targetType = imageTypeIterator.next();
-        BufferedImage image = bufferedImageIterator.next();
+        BufferedImage[] imagePages = bufferedImageIterator.next();
 
         String fileName;
         if (fileType == null || "".equals(fileType)) {
@@ -205,28 +222,34 @@ public class ImageUtil {
           fileName = imageFile.getName().replaceFirst("[^.]+$", targetType.toLowerCase());
         }
 
-        IIOImage iioImage = new IIOImage(image, null, null);
-
+        int numImagePages = imagePages.length;
+        File destTIFFFile = new File(dest.getPath() + File.separator + OUTPUT_PREFIX + fileName);
+        ImageWriter fileWriter = getImageWriter(targetType, ImageIO.createImageOutputStream(destTIFFFile));
 //        ByteArrayOutputStream baos = new ByteArrayOutputStream();
 //        ImageWriter baosWriter = getImageWriter(targetType, ImageIO.createImageOutputStream(baos));
+        for (int i = 0; i < numImagePages; i++) {
+          BufferedImage imagePage = imagePages[i];
+
+          IIOImage iioImage = new IIOImage(imagePage, null, null);
+
 //        ImageWriteParam baosWriteParam = baosWriter.getDefaultWriteParam();
 //        if ("TIFF".equalsIgnoreCase(fileType) && baosWriteParam.canWriteCompressed()) {
 //          baosWriteParam.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
 //          baosWriteParam.setCompressionType("JPEG");
 //        }
-//        baosWriter.write(null, iioImage, baosWriteParam);
+//        baosWriter.writeToSequence(null, iioImage, baosWriteParam);
 
-        File destTIFFFile = new File(dest.getPath() + File.separator + OUTPUT_PREFIX + fileName);
-        ImageWriter fileWriter = getImageWriter(targetType, ImageIO.createImageOutputStream(destTIFFFile));
-        ImageWriteParam fileWriterParam = fileWriter.getDefaultWriteParam();
-        if ("TIFF".equalsIgnoreCase(fileType) && fileWriterParam.canWriteCompressed()) {
-          fileWriterParam.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
-          fileWriterParam.setCompressionType("JPEG");
-          if (quality >= 0 && quality <= 1) {
-            fileWriterParam.setCompressionQuality(quality);
+          ImageWriteParam fileWriterParam = fileWriter.getDefaultWriteParam();
+          if ("TIFF".equalsIgnoreCase(fileType) && fileWriterParam.canWriteCompressed()) {
+            fileWriterParam.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+            fileWriterParam.setCompressionType("JPEG");
+            if (quality >= 0 && quality <= 1) {
+              fileWriterParam.setCompressionQuality(quality);
+            }
           }
+          fileWriter.writeToSequence(iioImage, fileWriterParam);
         }
-        fileWriter.write(null, iioImage, fileWriterParam);
+        fileWriter.endWriteSequence();
 
         newImageFileList.add(destTIFFFile);
 //
@@ -241,7 +264,7 @@ public class ImageUtil {
       return newImageFileList;
     }
 
-    public List<String> convertToBase64() {
+    public List<String[]> convertToBase64() {
       List<String> base64StringList = new ArrayList<>();
 
       return convertImageToBase64String(this);
@@ -291,18 +314,21 @@ public class ImageUtil {
 
       List<File> newImageFileList = new ArrayList<>();
       List<String> newImageTypeList = new ArrayList<>();
-      List<BufferedImage> newBufferedImageList = new ArrayList<>();
+      List<BufferedImage[]> newBufferedImageList = new ArrayList<>();
 
-      for (int i = 0; i < document.getNumberOfPages(); i++) {
+      int numPDFPages = document.getNumberOfPages();
+      BufferedImage[] imagePages = new BufferedImage[numPDFPages];
+      for (int i = 0; i < numPDFPages; i++) {
         int pageNo = i + 1;
         File imageFile = new File(PDFFile.getParent() + File.separator + PDFFile.getName().replaceFirst("\\.[^.]+$", "_p" + pageNo + ".tiff"));
         newImageFileList.add(imageFile);
 
         newImageTypeList.add("TIFF");
 
-        BufferedImage image = pdfRenderer.renderImageWithDPI(i, 150, ImageType.RGB);
-        newBufferedImageList.add(image);
+        BufferedImage imagePage = pdfRenderer.renderImageWithDPI(i, 150, ImageType.RGB);
+        imagePages[i] = imagePage;
       }
+      newBufferedImageList.add(imagePages);
 
       imagesDetail = new Builder(newImageFileList, newImageTypeList, newBufferedImageList);
     } catch (InvalidPasswordException e) {
@@ -318,14 +344,14 @@ public class ImageUtil {
     return imagesDetail;
   }
 
-  public static String convertImageToBase64String(String src) {
+  public static String[] convertImageToBase64String(String src) {
     File file = new File(src);
 
     return convertImageToBase64String(file);
   }
 
-  public static String convertImageToBase64String(File src) {
-    String base64String = "";
+  public static String[] convertImageToBase64String(File src) {
+    String[] base64String = new String[]{};
 
     if (!src.exists()) {
       return base64String;
@@ -333,7 +359,7 @@ public class ImageUtil {
 
     try {
       Builder imagesDetail = getImagesDetail(new File[]{src});
-      List<String> base64StringList = convertImageToBase64String(imagesDetail);
+      List<String[]> base64StringList = convertImageToBase64String(imagesDetail);
 
       base64String = base64StringList.get(0);
     } catch (IOException e) {
@@ -343,27 +369,34 @@ public class ImageUtil {
     return base64String;
   }
 
-  private static List<String> convertImageToBase64String(Builder imagesDetail) {
-    List<String> base64StringList = new ArrayList<>();
+  private static List<String[]> convertImageToBase64String(Builder imagesDetail) {
+    List<String[]> base64StringList = new ArrayList<>();
 
-    List<BufferedImage> bufferedImageList = imagesDetail.bufferedImageList;
+    List<BufferedImage[]> bufferedImageList = imagesDetail.bufferedImageList;
     List<String> imageTypeList = imagesDetail.imageTypeList;
 
-    Iterator<BufferedImage> bufferedImageIterator = bufferedImageList.iterator();
+    Iterator<BufferedImage[]> bufferedImageIterator = bufferedImageList.iterator();
     Iterator<String> imageTypeIterator = imageTypeList.iterator();
     while (bufferedImageIterator.hasNext()) {
-      BufferedImage image = bufferedImageIterator.next();
+      BufferedImage[] imagePages = bufferedImageIterator.next();
       String imageType = imageTypeIterator.next();
 
-      ByteArrayOutputStream output = new ByteArrayOutputStream();
-      try {
-        ImageIO.write(image, imageType, output);
-      } catch (IOException e) {
-        e.printStackTrace();
-      }
+      int numImagePages = imagePages.length;
+      String[] base64StringPages = new String[numImagePages];
+      for (int i = 0; i < numImagePages; i++) {
+        BufferedImage imagePage = imagePages[i];
 
-      String base64String = DatatypeConverter.printBase64Binary(output.toByteArray());
-      base64StringList.add(base64String);
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        try {
+          ImageIO.write(imagePage, imageType, output);
+        } catch (IOException e) {
+          e.printStackTrace();
+        }
+
+        String base64StringPage = DatatypeConverter.printBase64Binary(output.toByteArray());
+        base64StringPages[i] = base64StringPage;
+      }
+      base64StringList.add(base64StringPages);
     }
 
     return base64StringList;
@@ -378,7 +411,7 @@ public class ImageUtil {
   private static Builder getImagesDetail(List<File> fileList) throws IOException {
     List<File> imageFileList = new ArrayList<>();
     List<String> imageTypeList = new ArrayList<>();
-    List<BufferedImage> bufferedImageList = new ArrayList<>();
+    List<BufferedImage[]> bufferedImageList = new ArrayList<>();
 
     Iterator<File> filesIterator = fileList.iterator();
     while (filesIterator.hasNext()) {
@@ -398,7 +431,15 @@ public class ImageUtil {
 
           imageFileList.add(imageFile);
           imageTypeList.add(imageReader.getFormatName());
-          bufferedImageList.add(imageReader.read(imageReader.getMinIndex()));
+
+          // 取得多頁圖片頁數
+          int numImagePages = imageReader.getNumImages(true);
+          BufferedImage[] imagePages = new BufferedImage[numImagePages];
+          for (int i = 0; i < numImagePages; i++) {
+            BufferedImage imagePage = imageReader.read(i);
+            imagePages[i] = imagePage;
+          }
+          bufferedImageList.add(imagePages);
         }
       } catch (UnsupportedOperationException e) {
         System.out.println(e.getMessage() + " Skipped file: " + imageFile.getPath());
