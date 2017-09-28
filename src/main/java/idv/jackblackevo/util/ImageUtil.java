@@ -276,49 +276,6 @@ public class ImageUtil {
     return builder;
   }
 
-  public static Builder fromPDF(String PDFSrc) {
-    File PDFFile = new File(PDFSrc);
-
-    return fromPDF(PDFFile);
-  }
-
-  public static Builder fromPDF(File PDFFile) {
-    if (!PDFFile.exists() || PDFFile.isDirectory()) {
-      throw new UnsupportedOperationException("Illegal PDF format!");
-    }
-
-    Builder imagesDetail = null;
-    try (
-      PDDocument document = PDDocument.load(PDFFile)
-    ) {
-      PDFRenderer pdfRenderer = new PDFRenderer(document);
-
-      List<ImageData> newImageDataList = new ArrayList<>();
-
-      int numPDFPages = document.getNumberOfPages();
-      BufferedImage[] imagePages = new BufferedImage[numPDFPages];
-      for (int i = 0; i < numPDFPages; i++) {
-        BufferedImage imagePage = pdfRenderer.renderImageWithDPI(i, 150, ImageType.RGB);
-        imagePages[i] = imagePage;
-      }
-
-      ImageData newImageData = new ImageData(PDFFile.getName().replaceFirst("\\.[^.]+$", ""), "TIFF", imagePages);
-      newImageDataList.add(newImageData);
-
-      imagesDetail = new Builder(newImageDataList);
-    } catch (InvalidPasswordException e) {
-      e.printStackTrace();
-
-      return imagesDetail;
-    } catch (IOException e) {
-      e.printStackTrace();
-
-      return imagesDetail;
-    }
-
-    return imagesDetail;
-  }
-
   public static String[] convertImageToBase64String(String src) {
     File file = new File(src);
 
@@ -411,7 +368,28 @@ public class ImageUtil {
           imageDataList.add(imageData);
         }
       } catch (UnsupportedOperationException e) {
-        System.out.println(e.getMessage() + " Skipped file: " + imageFile.getPath());
+        // PDF
+        try (
+          PDDocument document = PDDocument.load(imageFile)
+        ) {
+          PDFRenderer pdfRenderer = new PDFRenderer(document);
+
+          int numPDFPages = document.getNumberOfPages();
+          BufferedImage[] imagePages = new BufferedImage[numPDFPages];
+          for (int i = 0; i < numPDFPages; i++) {
+            BufferedImage imagePage = pdfRenderer.renderImageWithDPI(i, 150, ImageType.RGB);
+            imagePages[i] = imagePage;
+          }
+
+          ImageData imageData = new ImageData(imageFile.getName().replaceFirst("\\.[^.]+$", ""), "TIFF", imagePages);
+          imageDataList.add(imageData);
+        } catch (InvalidPasswordException ee) {
+          System.out.println(e.getMessage() + " Try to read as PDF...");
+          System.out.println(ee.getMessage() + " Skipped file: " + imageFile.getPath());
+        } catch (IOException ee) {
+          System.out.println(e.getMessage() + " Try to read as PDF...");
+          System.out.println(ee.getMessage() + " Skipped file: " + imageFile.getPath());
+        }
 
         continue;
       }

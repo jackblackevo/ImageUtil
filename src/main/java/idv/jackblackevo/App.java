@@ -11,9 +11,7 @@ public class App {
     Properties prop = new Properties();
     prop.load(cpProp.openStream());
 
-    String from = prop.getProperty("from");
     String imageInput = prop.getProperty("image.input.folder.path");
-    String PDFInput = prop.getProperty("pdf.input.file.path");
     String exportImageFormat = prop.getProperty("image.output.format");
     String imageOutput = prop.getProperty("image.output.folder.path");
 
@@ -25,12 +23,7 @@ public class App {
 
     boolean imageTargetMultipage = Boolean.parseBoolean(prop.getProperty("image.output.multipage"));
 
-    ImageUtil.Builder imageBuilder;
-    if ("PDF".equalsIgnoreCase(from)) {
-      imageBuilder = ImageUtil.fromPDF(PDFInput);
-    } else {
-      imageBuilder = ImageUtil.fromSrc(imageInput);
-    }
+    ImageUtil.Builder imageBuilder = ImageUtil.fromSrc(imageInput);
 
     if ("landscape".equalsIgnoreCase(imageOrientation)) {
       imageBuilder = imageBuilder.rotate(ImageUtil.LANDSCAPE);
