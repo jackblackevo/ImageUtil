@@ -120,16 +120,23 @@ public class ImageUtil {
       return writeToMultipageTIFF(destLocation, -1);
     }
 
+    public File writeToMultipageTIFF(File destLocation) throws IOException {
+      return writeToMultipageTIFF(destLocation, -1);
+    }
+
     public File writeToMultipageTIFF(String destLocation, float quality) throws IOException {
-      File dest = new File(destLocation);
-      if (!dest.exists()) {
-        dest.mkdirs();
-      } else if (!dest.isDirectory()) {
+      return writeToMultipageTIFF(new File(destLocation), quality);
+    }
+
+    public File writeToMultipageTIFF(File destLocation, float quality) throws IOException {
+      if (!destLocation.exists()) {
+        destLocation.mkdirs();
+      } else if (!destLocation.isDirectory()) {
         throw new UnsupportedOperationException("Destination location is not a directory!");
       }
 
       SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd_hh_mm_ss");
-      File newFile = new File(dest.getPath() + File.separator + OUTPUT_PREFIX + COMBINE_PREFIX + sdf.format(Calendar.getInstance().getTime()) + ".tiff");
+      File newFile = new File(destLocation.getPath() + File.separator + OUTPUT_PREFIX + COMBINE_PREFIX + sdf.format(Calendar.getInstance().getTime()) + ".tiff");
 
       ImageWriter imageWriter = getImageWriter("TIFF", ImageIO.createImageOutputStream(newFile));
 
@@ -155,12 +162,23 @@ public class ImageUtil {
       return writeToFiles(destLocation, null);
     }
 
+    public List<File> writeToFiles(File destLocation) throws IOException {
+      return writeToFiles(destLocation, null);
+    }
+
     public List<File> writeToFiles(String destLocation, String fileType) throws IOException {
       return writeToFiles(destLocation, fileType, -1);
     }
 
+    public List<File> writeToFiles(File destLocation, String fileType) throws IOException {
+      return writeToFiles(destLocation, fileType, -1);
+    }
+
     public List<File> writeToFiles(String destLocation, String fileType, float quality) throws IOException {
-      File dest = new File(destLocation);
+      return writeToFiles(new File(destLocation), fileType, quality);
+    }
+
+    public List<File> writeToFiles(File dest, String fileType, float quality) throws IOException {
       if (!dest.exists()) {
         dest.mkdirs();
       } else if (!dest.isDirectory()) {
