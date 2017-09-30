@@ -131,7 +131,9 @@ public class ImageUtil {
 
           if (rotate != 0) {
             AffineTransform affine = new AffineTransform();
-            affine.setToRotation(Math.toRadians(rotate), imagePage.getHeight() / 2, imagePage.getHeight() / 2);
+            double theta = Math.toRadians(rotate);
+            double anchor = imagePage.getHeight() / 2d;
+            affine.setToRotation(theta, anchor, anchor);
 
             AffineTransformOp op = new AffineTransformOp(affine, AffineTransformOp.TYPE_BICUBIC);
             BufferedImage rotatedImagePage = new BufferedImage(imagePage.getHeight(), imagePage.getWidth(), imagePage.getType());
