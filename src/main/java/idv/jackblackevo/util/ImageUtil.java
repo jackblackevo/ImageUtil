@@ -171,12 +171,6 @@ public class ImageUtil {
         throw new UnsupportedOperationException("Builder is closed!");
       }
 
-      if (!destLocation.exists()) {
-        destLocation.mkdirs();
-      } else if (!destLocation.isDirectory()) {
-        throw new UnsupportedOperationException("Destination location is not a directory!");
-      }
-
       SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd_hh_mm_ss");
       File newFile = new File(destLocation.getPath() + File.separator + OUTPUT_PREFIX + COMBINE_PREFIX + sdf.format(Calendar.getInstance().getTime()) + ".tiff");
 
@@ -238,15 +232,9 @@ public class ImageUtil {
       return writeToFiles(new File(destLocation), fileType, quality, isCloseBuilderAfterWrote);
     }
 
-    public List<File> writeToFiles(File dest, String fileType, float quality, boolean isCloseBuilderAfterWrote) throws IOException {
+    public List<File> writeToFiles(File destLocation, String fileType, float quality, boolean isCloseBuilderAfterWrote) throws IOException {
       if (isClosed) {
         throw new UnsupportedOperationException("Builder is closed!");
-      }
-
-      if (!dest.exists()) {
-        dest.mkdirs();
-      } else if (!dest.isDirectory()) {
-        throw new UnsupportedOperationException("Destination location is not a directory!");
       }
 
       List<File> newImageFileList = new ArrayList<>();
@@ -265,7 +253,7 @@ public class ImageUtil {
 
         boolean isTIFF = "TIF".equalsIgnoreCase(imageType) || "TIFF".equalsIgnoreCase(imageType);
         if (isTIFF || "GIF".equalsIgnoreCase(imageType)) {
-          File destFile = new File(dest.getPath() + File.separator + OUTPUT_PREFIX + imageData.getFileName() + "." + imageType);
+          File destFile = new File(destLocation.getPath() + File.separator + OUTPUT_PREFIX + imageData.getFileName() + "." + imageType);
 
           writeImage(destFile, imageType, quality, imagePages);
 
@@ -277,7 +265,7 @@ public class ImageUtil {
               page = "";
             }
 
-            File pageDestFile = new File(dest.getPath() + File.separator + OUTPUT_PREFIX + imageData.getFileName() + page + "." + imageType);
+            File pageDestFile = new File(destLocation.getPath() + File.separator + OUTPUT_PREFIX + imageData.getFileName() + page + "." + imageType);
             BufferedImage imagePage = imagePages[i];
 
             writeImage(pageDestFile, imageType, quality, imagePage);
@@ -298,8 +286,6 @@ public class ImageUtil {
       if (isClosed) {
         throw new UnsupportedOperationException("Builder is closed!");
       }
-
-      List<String> base64StringList = new ArrayList<>();
 
       return convertImageToBase64String(this);
     }
@@ -485,6 +471,15 @@ public class ImageUtil {
   }
 
   private static void writeImage(File destFile, String imageType, float quality, BufferedImage[] imagePages) throws IOException {
+    File destLocation = destFile.getParentFile();
+    if (!destLocation.exists()) {
+      if (destLocation.mkdirs()) {
+        throw new IIOException("Can not create destination directory!");
+      }
+    } else if (!destLocation.isDirectory()) {
+      throw new UnsupportedOperationException("Destination location is not a directory!");
+    }
+
     boolean isWriteMultipage = imagePages.length > 1;
     boolean isTIFF = "TIF".equalsIgnoreCase(imageType) || "TIFF".equalsIgnoreCase(imageType);
 
