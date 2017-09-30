@@ -257,7 +257,7 @@ public class ImageUtil {
         if (isTIFF || "GIF".equalsIgnoreCase(imageType)) {
           File destFile = new File(destLocation.getPath() + File.separator + OUTPUT_PREFIX + imageData.getFileName() + "." + imageType);
 
-          writeImage(destFile, imageType, quality, imagePages);
+          writeImageToFile(destFile, imageType, quality, imagePages);
 
           newImageFileList.add(destFile);
         } else {
@@ -270,7 +270,7 @@ public class ImageUtil {
             File pageDestFile = new File(destLocation.getPath() + File.separator + OUTPUT_PREFIX + imageData.getFileName() + page + "." + imageType);
             BufferedImage imagePage = imagePages[i];
 
-            writeImage(pageDestFile, imageType, quality, imagePage);
+            writeImageToFile(pageDestFile, imageType, quality, imagePage);
 
             newImageFileList.add(pageDestFile);
           }
@@ -284,7 +284,7 @@ public class ImageUtil {
       return newImageFileList;
     }
 
-    public List<String[]> convertToBase64() {
+    public List<String> convertToBase64() {
       if (isClosed) {
         throw new UnsupportedOperationException("Builder is closed!");
       }
@@ -317,14 +317,14 @@ public class ImageUtil {
     return builder;
   }
 
-  public static String[] convertImageToBase64String(String src) {
+  public static String convertImageToBase64String(String src) {
     File file = new File(src);
 
     return convertImageToBase64String(file);
   }
 
-  public static String[] convertImageToBase64String(File src) {
-    String[] base64String = new String[]{};
+  public static String convertImageToBase64String(File src) {
+    String base64String = "";
 
     if (!src.exists()) {
       return base64String;
@@ -332,7 +332,7 @@ public class ImageUtil {
 
     try {
       Builder imagesDetail = getImagesDetail(new File[]{src});
-      List<String[]> base64StringList = convertImageToBase64String(imagesDetail);
+      List<String> base64StringList = convertImageToBase64String(imagesDetail);
 
       base64String = base64StringList.get(0);
     } catch (IOException e) {
@@ -342,8 +342,8 @@ public class ImageUtil {
     return base64String;
   }
 
-  private static List<String[]> convertImageToBase64String(Builder imagesDetail) {
-    List<String[]> base64StringList = new ArrayList<>();
+  private static List<String> convertImageToBase64String(Builder imagesDetail) {
+    List<String> base64StringList = new ArrayList<>();
 
     List<ImageData> imageDataList = new ArrayList<>();
 
@@ -353,22 +353,15 @@ public class ImageUtil {
       String imageType = imageData.getImageType();
       BufferedImage[] imagePages = imageData.getImagePages();
 
-      int numImagePages = imagePages.length;
-      String[] base64StringPages = new String[numImagePages];
-      for (int i = 0; i < numImagePages; i++) {
-        BufferedImage imagePage = imagePages[i];
-
-        ByteArrayOutputStream output = new ByteArrayOutputStream();
-        try {
-          ImageIO.write(imagePage, imageType, output);
-        } catch (IOException e) {
-          e.printStackTrace();
-        }
-
-        String base64StringPage = DatatypeConverter.printBase64Binary(output.toByteArray());
-        base64StringPages[i] = base64StringPage;
+      byte[] imageBytes = new byte[0];
+      try {
+        imageBytes = writeImageToByteArray(imageType, imagePages);
+      } catch (IOException e) {
+        e.printStackTrace();
       }
-      base64StringList.add(base64StringPages);
+      String base64StringPage = DatatypeConverter.printBase64Binary(imageBytes);
+
+      base64StringList.add(base64StringPage);
     }
 
     return base64StringList;
@@ -468,11 +461,23 @@ public class ImageUtil {
     return new ImageData(fileName, formatName, imagePages);
   }
 
-  private static void writeImage(File destFile, String imageType, float quality, BufferedImage imagePage) throws IOException {
-    writeImage(destFile, imageType, quality, new BufferedImage[]{imagePage});
+  private static byte[] writeImageToByteArray(String imageType, BufferedImage imagePage) throws IOException {
+    return writeImageToByteArray(imageType, new BufferedImage[]{imagePage});
   }
 
-  private static void writeImage(File destFile, String imageType, float quality, BufferedImage[] imagePages) throws IOException {
+  private static byte[] writeImageToByteArray(String imageType, BufferedImage[] imagePages) throws IOException {
+    ByteArrayOutputStream bao = new ByteArrayOutputStream();
+    ImageOutputStream ios = ImageIO.createImageOutputStream(bao);
+    writeImage(ios, imageType, -1, imagePages);
+
+    return bao.toByteArray();
+  }
+
+  private static void writeImageToFile(File destFile, String imageType, float quality, BufferedImage imagePage) throws IOException {
+    writeImageToFile(destFile, imageType, quality, new BufferedImage[]{imagePage});
+  }
+
+  private static void writeImageToFile(File destFile, String imageType, float quality, BufferedImage[] imagePages) throws IOException {
     File destLocation = destFile.getParentFile();
     if (!destLocation.exists()) {
       if (destLocation.mkdirs()) {
@@ -486,9 +491,16 @@ public class ImageUtil {
     boolean isTIFF = "TIF".equalsIgnoreCase(imageType) || "TIFF".equalsIgnoreCase(imageType);
 
     ImageWriter imageWriter = null;
-    try (
-      ImageOutputStream ios = ImageIO.createImageOutputStream(destFile)
-    ) {
+    ImageOutputStream ios = ImageIO.createImageOutputStream(destFile);
+    writeImage(ios, imageType, quality, imagePages);
+  }
+
+  private static void writeImage(ImageOutputStream ios, String imageType, float quality, BufferedImage[] imagePages) throws IOException {
+    boolean isWriteMultipage = imagePages.length > 1;
+    boolean isTIFF = "TIF".equalsIgnoreCase(imageType) || "TIFF".equalsIgnoreCase(imageType);
+
+    ImageWriter imageWriter = null;
+    try {
       imageWriter = getImageWriter(imageType, ios);
 
       ImageWriteParam imageWriteParam = imageWriter.getDefaultWriteParam();
@@ -521,6 +533,20 @@ public class ImageUtil {
 
       throw e;
     } finally {
+      if (ios != null) {
+        try {
+          ios.flush();
+        } catch (IOException e) {
+          throw e;
+        }
+
+        try {
+          ios.close();
+        } catch (IOException e) {
+          throw e;
+        }
+      }
+
       if (imageWriter != null) {
         imageWriter.dispose();
       }
