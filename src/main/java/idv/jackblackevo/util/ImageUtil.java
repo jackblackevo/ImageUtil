@@ -33,13 +33,44 @@ public class ImageUtil {
     private static final String RESIZE_PREFIX = "resize_";
     private static final String COMBINE_PREFIX = "combine_";
 
+    private boolean isClosed = false;
     private List<ImageData> imageDataList;
 
     private Builder(List<ImageData> imageDataList) {
       this.imageDataList = imageDataList;
     }
 
+    public void close() {
+      if (isClosed) {
+        throw new UnsupportedOperationException("Builder is closed!");
+      }
+
+      Iterator<ImageData> imageDetailListIterator = imageDataList.iterator();
+      while (imageDetailListIterator.hasNext()) {
+        ImageData imageData = imageDetailListIterator.next();
+        BufferedImage[] imagePages = imageData.getImagePages();
+
+        int numImagePages = imagePages.length;
+        for (int i = 0; i < numImagePages; i++) {
+          BufferedImage imagePage = imagePages[i];
+
+          // 釋放內部緩衝的記憶體
+          imagePage.flush();
+        }
+      }
+
+      isClosed = true;
+    }
+
+    public boolean checkIsClosed() {
+      return isClosed;
+    }
+
     public Builder resize(int width, int height) throws IOException {
+      if (isClosed) {
+        throw new UnsupportedOperationException("Builder is closed!");
+      }
+
       if (width <= 0 || height <= 0) {
         return this;
       }
@@ -75,6 +106,10 @@ public class ImageUtil {
     }
 
     public Builder rotate(Orientation orientation) {
+      if (isClosed) {
+        throw new UnsupportedOperationException("Builder is closed!");
+      }
+
       Iterator<ImageData> imageDetailListIterator = imageDataList.iterator();
       while (imageDetailListIterator.hasNext()) {
         ImageData imageData = imageDetailListIterator.next();
@@ -132,6 +167,10 @@ public class ImageUtil {
     }
 
     public File writeToMultipageTIFF(File destLocation, float quality) throws IOException {
+      if (isClosed) {
+        throw new UnsupportedOperationException("Builder is closed!");
+      }
+
       if (!destLocation.exists()) {
         destLocation.mkdirs();
       } else if (!destLocation.isDirectory()) {
@@ -181,6 +220,10 @@ public class ImageUtil {
     }
 
     public List<File> writeToFiles(File dest, String fileType, float quality) throws IOException {
+      if (isClosed) {
+        throw new UnsupportedOperationException("Builder is closed!");
+      }
+
       if (!dest.exists()) {
         dest.mkdirs();
       } else if (!dest.isDirectory()) {
@@ -250,6 +293,10 @@ public class ImageUtil {
     }
 
     public List<String[]> convertToBase64() {
+      if (isClosed) {
+        throw new UnsupportedOperationException("Builder is closed!");
+      }
+
       List<String> base64StringList = new ArrayList<>();
 
       return convertImageToBase64String(this);
