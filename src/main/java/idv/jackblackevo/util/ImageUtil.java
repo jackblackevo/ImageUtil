@@ -44,8 +44,6 @@ public class ImageUtil {
         return this;
       }
 
-      List<ImageData> newImageDataList = new ArrayList<>();
-
       Iterator<ImageData> imageDetailListIterator = imageDataList.iterator();
       while (imageDetailListIterator.hasNext()) {
         ImageData imageData = imageDetailListIterator.next();
@@ -62,19 +60,21 @@ public class ImageUtil {
           BufferedImageOp reSampler = new ResampleOp(newImageSize.width, newImageSize.height, ResampleOp.FILTER_LANCZOS);
           BufferedImage resizedImagePage = reSampler.filter(imagePage, null);
 
+          // 釋放內部緩衝的記憶體
+          imagePage.flush();
+
           newImagePages[i] = resizedImagePage;
         }
 
-        ImageData newImageData = new ImageData(RESIZE_PREFIX + fileName, imageType, newImagePages);
-        newImageDataList.add(newImageData);
+        imageData.setFileName(RESIZE_PREFIX + fileName);
+        imageData.setImageType(imageType);
+        imageData.setImagePages(newImagePages);
       }
 
-      return new Builder(newImageDataList);
+      return this;
     }
 
     public Builder rotate(Orientation orientation) {
-      List<ImageData> newImageDataList = new ArrayList<>();
-
       Iterator<ImageData> imageDetailListIterator = imageDataList.iterator();
       while (imageDetailListIterator.hasNext()) {
         ImageData imageData = imageDetailListIterator.next();
@@ -102,17 +102,21 @@ public class ImageUtil {
             BufferedImage rotatedImagePage = new BufferedImage(imagePage.getHeight(), imagePage.getWidth(), imagePage.getType());
             op.filter(imagePage, rotatedImagePage);
 
+            // 釋放內部緩衝的記憶體
+            imagePage.flush();
+
             newImagePages[i] = rotatedImagePage;
           } else {
             newImagePages[i] = imagePage;
           }
         }
 
-        ImageData newImageData = new ImageData(fileName, imageType, newImagePages);
-        newImageDataList.add(newImageData);
+        imageData.setFileName(fileName);
+        imageData.setImageType(imageType);
+        imageData.setImagePages(newImagePages);
       }
 
-      return new Builder(newImageDataList);
+      return this;
     }
 
     public File writeToMultipageTIFF(String destLocation) throws IOException {

@@ -18,11 +18,23 @@ class ImageData {
     return fileName;
   }
 
+  public void setFileName(String fileName) {
+    this.fileName = fileName;
+  }
+
   public String getImageType() {
     return imageType;
   }
 
+  public void setImageType(String imageType) {
+    this.imageType = imageType;
+  }
+
   public BufferedImage[] getImagePages() {
     return imagePages;
+  }
+
+  public void setImagePages(BufferedImage[] imagePages) {
+    this.imagePages = imagePages;
   }
 }
