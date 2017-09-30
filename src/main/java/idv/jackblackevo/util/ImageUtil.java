@@ -345,7 +345,7 @@ public class ImageUtil {
   private static List<String> convertImageToBase64String(Builder imagesDetail) {
     List<String> base64StringList = new ArrayList<>();
 
-    List<ImageData> imageDataList = new ArrayList<>();
+    List<ImageData> imageDataList = imagesDetail.imageDataList;
 
     Iterator<ImageData> imageDetailListIterator = imageDataList.iterator();
     while (imageDetailListIterator.hasNext()) {
