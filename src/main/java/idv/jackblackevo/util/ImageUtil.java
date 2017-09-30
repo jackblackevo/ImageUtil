@@ -154,19 +154,19 @@ public class ImageUtil {
       return this;
     }
 
-    public File writeToMultipageTIFF(String destLocation) throws IOException {
-      return writeToMultipageTIFF(destLocation, -1);
+    public File writeToMultipageTIFF(String destLocation, boolean isCloseBuilderAfterWrote) throws IOException {
+      return writeToMultipageTIFF(destLocation, -1, isCloseBuilderAfterWrote);
     }
 
-    public File writeToMultipageTIFF(File destLocation) throws IOException {
-      return writeToMultipageTIFF(destLocation, -1);
+    public File writeToMultipageTIFF(File destLocation, boolean isCloseBuilderAfterWrote) throws IOException {
+      return writeToMultipageTIFF(destLocation, -1, isCloseBuilderAfterWrote);
     }
 
-    public File writeToMultipageTIFF(String destLocation, float quality) throws IOException {
-      return writeToMultipageTIFF(new File(destLocation), quality);
+    public File writeToMultipageTIFF(String destLocation, float quality, boolean isCloseBuilderAfterWrote) throws IOException {
+      return writeToMultipageTIFF(new File(destLocation), quality, isCloseBuilderAfterWrote);
     }
 
-    public File writeToMultipageTIFF(File destLocation, float quality) throws IOException {
+    public File writeToMultipageTIFF(File destLocation, float quality, boolean isCloseBuilderAfterWrote) throws IOException {
       if (isClosed) {
         throw new UnsupportedOperationException("Builder is closed!");
       }
@@ -196,30 +196,34 @@ public class ImageUtil {
       }
       imageWriter.endWriteSequence();
 
+      if (isCloseBuilderAfterWrote) {
+        close();
+      }
+
       return newFile;
     }
 
-    public List<File> writeToFiles(String destLocation) throws IOException {
-      return writeToFiles(destLocation, null);
+    public List<File> writeToFiles(String destLocation, boolean isCloseBuilderAfterWrote) throws IOException {
+      return writeToFiles(destLocation, null, isCloseBuilderAfterWrote);
     }
 
-    public List<File> writeToFiles(File destLocation) throws IOException {
-      return writeToFiles(destLocation, null);
+    public List<File> writeToFiles(File destLocation, boolean isCloseBuilderAfterWrote) throws IOException {
+      return writeToFiles(destLocation, null, isCloseBuilderAfterWrote);
     }
 
-    public List<File> writeToFiles(String destLocation, String fileType) throws IOException {
-      return writeToFiles(destLocation, fileType, -1);
+    public List<File> writeToFiles(String destLocation, String fileType, boolean isCloseBuilderAfterWrote) throws IOException {
+      return writeToFiles(destLocation, fileType, -1, isCloseBuilderAfterWrote);
     }
 
-    public List<File> writeToFiles(File destLocation, String fileType) throws IOException {
-      return writeToFiles(destLocation, fileType, -1);
+    public List<File> writeToFiles(File destLocation, String fileType, boolean isCloseBuilderAfterWrote) throws IOException {
+      return writeToFiles(destLocation, fileType, -1, isCloseBuilderAfterWrote);
     }
 
-    public List<File> writeToFiles(String destLocation, String fileType, float quality) throws IOException {
-      return writeToFiles(new File(destLocation), fileType, quality);
+    public List<File> writeToFiles(String destLocation, String fileType, float quality, boolean isCloseBuilderAfterWrote) throws IOException {
+      return writeToFiles(new File(destLocation), fileType, quality, isCloseBuilderAfterWrote);
     }
 
-    public List<File> writeToFiles(File dest, String fileType, float quality) throws IOException {
+    public List<File> writeToFiles(File dest, String fileType, float quality, boolean isCloseBuilderAfterWrote) throws IOException {
       if (isClosed) {
         throw new UnsupportedOperationException("Builder is closed!");
       }
@@ -287,6 +291,10 @@ public class ImageUtil {
             newImageFileList.add(pageDestFile);
           }
         }
+      }
+
+      if (isCloseBuilderAfterWrote) {
+        close();
       }
 
       return newImageFileList;
