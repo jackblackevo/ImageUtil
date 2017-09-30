@@ -180,21 +180,36 @@ public class ImageUtil {
       SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd_hh_mm_ss");
       File newFile = new File(destLocation.getPath() + File.separator + OUTPUT_PREFIX + COMBINE_PREFIX + sdf.format(Calendar.getInstance().getTime()) + ".tiff");
 
-      ImageWriter imageWriter = getImageWriter("TIFF", ImageIO.createImageOutputStream(newFile));
+      ImageWriter imageWriter = null;
+      try (
+        ImageOutputStream ios = ImageIO.createImageOutputStream(newFile)
+      ) {
+        imageWriter = getImageWriter("TIFF", ios);
 
-      ImageWriteParam params = imageWriter.getDefaultWriteParam();
-      setImageWriteParamCompression(params, quality);
+        ImageWriteParam params = imageWriter.getDefaultWriteParam();
+        setImageWriteParamCompression(params, quality);
 
-      imageWriter.prepareWriteSequence(null);
-      Iterator<ImageData> imageDetailIterator = imageDataList.iterator();
-      while (imageDetailIterator.hasNext()) {
-        BufferedImage[] imagePages = imageDetailIterator.next().getImagePages();
-        for (int i = 0; i < imagePages.length; i++) {
-          IIOImage iioImage = new IIOImage(imagePages[i], null, null);
-          imageWriter.writeToSequence(iioImage, params);
+        imageWriter.prepareWriteSequence(null);
+        Iterator<ImageData> imageDetailIterator = imageDataList.iterator();
+        while (imageDetailIterator.hasNext()) {
+          BufferedImage[] imagePages = imageDetailIterator.next().getImagePages();
+          for (int i = 0; i < imagePages.length; i++) {
+            IIOImage iioImage = new IIOImage(imagePages[i], null, null);
+            imageWriter.writeToSequence(iioImage, params);
+          }
+        }
+        imageWriter.endWriteSequence();
+      } catch (IOException e) {
+        if (imageWriter != null) {
+          imageWriter.abort();
+        }
+
+        throw e;
+      } finally {
+        if (imageWriter != null) {
+          imageWriter.dispose();
         }
       }
-      imageWriter.endWriteSequence();
 
       if (isCloseBuilderAfterWrote) {
         close();
@@ -251,21 +266,37 @@ public class ImageUtil {
         boolean isTIFF = "TIF".equalsIgnoreCase(imageType) || "TIFF".equalsIgnoreCase(imageType);
         if (isTIFF || "GIF".equalsIgnoreCase(imageType)) {
           File destFile = new File(dest.getPath() + File.separator + OUTPUT_PREFIX + imageData.getFileName() + "." + imageType);
-          ImageWriter fileWriter = getImageWriter(imageType, ImageIO.createImageOutputStream(destFile));
 
-          ImageWriteParam fileWriterParam = fileWriter.getDefaultWriteParam();
-          if (isTIFF && fileWriterParam.canWriteCompressed()) {
-            setImageWriteParamCompression(fileWriterParam, quality);
+          ImageWriter fileWriter = null;
+          try (
+            ImageOutputStream ios = ImageIO.createImageOutputStream(destFile)
+          ) {
+            fileWriter = getImageWriter(imageType, ios);
+
+            ImageWriteParam fileWriterParam = fileWriter.getDefaultWriteParam();
+            if (isTIFF && fileWriterParam.canWriteCompressed()) {
+              setImageWriteParamCompression(fileWriterParam, quality);
+            }
+
+            fileWriter.prepareWriteSequence(null);
+            for (int i = 0; i < numImagePages; i++) {
+              BufferedImage imagePage = imagePages[i];
+
+              IIOImage iioImage = new IIOImage(imagePage, null, null);
+              fileWriter.writeToSequence(iioImage, fileWriterParam);
+            }
+            fileWriter.endWriteSequence();
+          } catch (IOException e) {
+            if (fileWriter != null) {
+              fileWriter.abort();
+            }
+
+            throw e;
+          } finally {
+            if (fileWriter != null) {
+              fileWriter.dispose();
+            }
           }
-
-          fileWriter.prepareWriteSequence(null);
-          for (int i = 0; i < numImagePages; i++) {
-            BufferedImage imagePage = imagePages[i];
-
-            IIOImage iioImage = new IIOImage(imagePage, null, null);
-            fileWriter.writeToSequence(iioImage, fileWriterParam);
-          }
-          fileWriter.endWriteSequence();
 
           newImageFileList.add(destFile);
         } else {
@@ -276,17 +307,33 @@ public class ImageUtil {
             }
 
             File pageDestFile = new File(dest.getPath() + File.separator + OUTPUT_PREFIX + imageData.getFileName() + page + "." + imageType);
-            ImageWriter pageFileWriter = getImageWriter(imageType, ImageIO.createImageOutputStream(pageDestFile));
 
-            ImageWriteParam pageFileWriterParam = pageFileWriter.getDefaultWriteParam();
-            if (isTIFF && pageFileWriterParam.canWriteCompressed()) {
-              setImageWriteParamCompression(pageFileWriterParam, quality);
+            ImageWriter pageFileWriter = null;
+            try (
+              ImageOutputStream ios = ImageIO.createImageOutputStream(pageDestFile)
+            ) {
+              pageFileWriter = getImageWriter(imageType, ios);
+
+              ImageWriteParam pageFileWriterParam = pageFileWriter.getDefaultWriteParam();
+              if (isTIFF && pageFileWriterParam.canWriteCompressed()) {
+                setImageWriteParamCompression(pageFileWriterParam, quality);
+              }
+
+              BufferedImage imagePage = imagePages[i];
+
+              IIOImage iioImage = new IIOImage(imagePage, null, null);
+              pageFileWriter.write(null, iioImage, pageFileWriterParam);
+            } catch (IOException e) {
+              if (pageFileWriter != null) {
+                pageFileWriter.abort();
+              }
+
+              throw e;
+            } finally {
+              if (pageFileWriter != null) {
+                pageFileWriter.dispose();
+              }
             }
-
-            BufferedImage imagePage = imagePages[i];
-
-            IIOImage iioImage = new IIOImage(imagePage, null, null);
-            pageFileWriter.write(null, iioImage, pageFileWriterParam);
 
             newImageFileList.add(pageDestFile);
           }
@@ -413,14 +460,31 @@ public class ImageUtil {
 
           imageDataList.addAll(tempImagesDetail.imageDataList);
         } else if (imageFile.exists()) {
-          ImageReader imageReader = getImageReader(imageFile);
+          BufferedImage[] imagePages;
 
-          // 取得多頁圖片頁數
-          int numImagePages = imageReader.getNumImages(true);
-          BufferedImage[] imagePages = new BufferedImage[numImagePages];
-          for (int i = 0; i < numImagePages; i++) {
-            BufferedImage imagePage = imageReader.read(i);
-            imagePages[i] = imagePage;
+          ImageReader imageReader = null;
+          try (
+            FileInputStream fis = new FileInputStream(imageFile);
+          ) {
+            imageReader = getImageReader(fis);
+
+            // 取得多頁圖片頁數
+            int numImagePages = imageReader.getNumImages(true);
+            imagePages = new BufferedImage[numImagePages];
+            for (int i = 0; i < numImagePages; i++) {
+              BufferedImage imagePage = imageReader.read(i);
+              imagePages[i] = imagePage;
+            }
+          } catch (IOException e) {
+            if (imageReader != null) {
+              imageReader.abort();
+            }
+
+            throw e;
+          } finally {
+            if (imageReader != null) {
+              imageReader.dispose();
+            }
           }
 
           ImageData imageData = new ImageData(imageFile.getName().replaceFirst("\\.[^.]+$", ""), imageReader.getFormatName(), imagePages);
@@ -461,20 +525,9 @@ public class ImageUtil {
     return new Builder(imageDataList);
   }
 
-  private static ImageReader getImageReader(File file) throws IOException {
-    List<ImageReader> imageReaderList = getImageReaderList(new File[]{file});
-
+  private static ImageReader getImageReader(FileInputStream fis) throws IOException {
+    List<ImageReader> imageReaderList = getImageReaderList(new InputStream[]{fis});
     return imageReaderList.get(0);
-  }
-
-  private static List<ImageReader> getImageReaderList(File[] files) throws IOException {
-    InputStream[] iss = new InputStream[files.length];
-    for (int i = 0; i < files.length; i++) {
-      File file = files[i];
-      iss[i] = new FileInputStream(file);
-    }
-
-    return getImageReaderList(iss);
   }
 
   private static List<ImageReader> getImageReaderList(InputStream[] iss) throws IOException {
