@@ -267,36 +267,7 @@ public class ImageUtil {
         if (isTIFF || "GIF".equalsIgnoreCase(imageType)) {
           File destFile = new File(dest.getPath() + File.separator + OUTPUT_PREFIX + imageData.getFileName() + "." + imageType);
 
-          ImageWriter fileWriter = null;
-          try (
-            ImageOutputStream ios = ImageIO.createImageOutputStream(destFile)
-          ) {
-            fileWriter = getImageWriter(imageType, ios);
-
-            ImageWriteParam fileWriterParam = fileWriter.getDefaultWriteParam();
-            if (isTIFF && fileWriterParam.canWriteCompressed()) {
-              setImageWriteParamCompression(fileWriterParam, quality);
-            }
-
-            fileWriter.prepareWriteSequence(null);
-            for (int i = 0; i < numImagePages; i++) {
-              BufferedImage imagePage = imagePages[i];
-
-              IIOImage iioImage = new IIOImage(imagePage, null, null);
-              fileWriter.writeToSequence(iioImage, fileWriterParam);
-            }
-            fileWriter.endWriteSequence();
-          } catch (IOException e) {
-            if (fileWriter != null) {
-              fileWriter.abort();
-            }
-
-            throw e;
-          } finally {
-            if (fileWriter != null) {
-              fileWriter.dispose();
-            }
-          }
+          writeImage(destFile, imageType, quality, imagePages);
 
           newImageFileList.add(destFile);
         } else {
@@ -307,33 +278,9 @@ public class ImageUtil {
             }
 
             File pageDestFile = new File(dest.getPath() + File.separator + OUTPUT_PREFIX + imageData.getFileName() + page + "." + imageType);
+            BufferedImage imagePage = imagePages[i];
 
-            ImageWriter pageFileWriter = null;
-            try (
-              ImageOutputStream ios = ImageIO.createImageOutputStream(pageDestFile)
-            ) {
-              pageFileWriter = getImageWriter(imageType, ios);
-
-              ImageWriteParam pageFileWriterParam = pageFileWriter.getDefaultWriteParam();
-              if (isTIFF && pageFileWriterParam.canWriteCompressed()) {
-                setImageWriteParamCompression(pageFileWriterParam, quality);
-              }
-
-              BufferedImage imagePage = imagePages[i];
-
-              IIOImage iioImage = new IIOImage(imagePage, null, null);
-              pageFileWriter.write(null, iioImage, pageFileWriterParam);
-            } catch (IOException e) {
-              if (pageFileWriter != null) {
-                pageFileWriter.abort();
-              }
-
-              throw e;
-            } finally {
-              if (pageFileWriter != null) {
-                pageFileWriter.dispose();
-              }
-            }
+            writeImage(pageDestFile, imageType, quality, imagePage);
 
             newImageFileList.add(pageDestFile);
           }
@@ -460,34 +407,7 @@ public class ImageUtil {
 
           imageDataList.addAll(tempImagesDetail.imageDataList);
         } else if (imageFile.exists()) {
-          BufferedImage[] imagePages;
-
-          ImageReader imageReader = null;
-          try (
-            FileInputStream fis = new FileInputStream(imageFile);
-          ) {
-            imageReader = getImageReader(fis);
-
-            // 取得多頁圖片頁數
-            int numImagePages = imageReader.getNumImages(true);
-            imagePages = new BufferedImage[numImagePages];
-            for (int i = 0; i < numImagePages; i++) {
-              BufferedImage imagePage = imageReader.read(i);
-              imagePages[i] = imagePage;
-            }
-          } catch (IOException e) {
-            if (imageReader != null) {
-              imageReader.abort();
-            }
-
-            throw e;
-          } finally {
-            if (imageReader != null) {
-              imageReader.dispose();
-            }
-          }
-
-          ImageData imageData = new ImageData(imageFile.getName().replaceFirst("\\.[^.]+$", ""), imageReader.getFormatName(), imagePages);
+          ImageData imageData = readImage(imageFile);
           imageDataList.add(imageData);
         }
       } catch (UnsupportedOperationException e) {
@@ -523,6 +443,91 @@ public class ImageUtil {
     }
 
     return new Builder(imageDataList);
+  }
+
+  private static ImageData readImage(File imageFile) throws IOException {
+    String fileName = imageFile.getName().replaceFirst("\\.[^.]+$", "");
+    String formatName;
+    BufferedImage[] imagePages;
+
+    ImageReader imageReader = null;
+    try (
+      FileInputStream fis = new FileInputStream(imageFile);
+    ) {
+      imageReader = getImageReader(fis);
+
+      formatName = imageReader.getFormatName();
+
+      // 取得多頁圖片頁數
+      int numImagePages = imageReader.getNumImages(true);
+      imagePages = new BufferedImage[numImagePages];
+      for (int i = 0; i < numImagePages; i++) {
+        BufferedImage imagePage = imageReader.read(i);
+        imagePages[i] = imagePage;
+      }
+    } catch (IOException e) {
+      if (imageReader != null) {
+        imageReader.abort();
+      }
+
+      throw e;
+    } finally {
+      if (imageReader != null) {
+        imageReader.dispose();
+      }
+    }
+
+    return new ImageData(fileName, formatName, imagePages);
+  }
+
+  private static void writeImage(File destFile, String imageType, float quality, BufferedImage imagePage) throws IOException {
+    writeImage(destFile, imageType, quality, new BufferedImage[]{imagePage});
+  }
+
+  private static void writeImage(File destFile, String imageType, float quality, BufferedImage[] imagePages) throws IOException {
+    boolean isWriteMultipage = imagePages.length > 1;
+    boolean isTIFF = "TIF".equalsIgnoreCase(imageType) || "TIFF".equalsIgnoreCase(imageType);
+
+    ImageWriter imageWriter = null;
+    try (
+      ImageOutputStream ios = ImageIO.createImageOutputStream(destFile)
+    ) {
+      imageWriter = getImageWriter(imageType, ios);
+
+      ImageWriteParam imageWriteParam = imageWriter.getDefaultWriteParam();
+      if (isTIFF && imageWriteParam.canWriteCompressed()) {
+        setImageWriteParamCompression(imageWriteParam, quality);
+      }
+
+      if (!isWriteMultipage) {
+        BufferedImage imagePage = imagePages[0];
+        IIOImage iioImage = new IIOImage(imagePage, null, null);
+        imageWriter.write(null, iioImage, imageWriteParam);
+      } else if (isTIFF || "GIF".equalsIgnoreCase(imageType)) {
+        int numImagePages = imagePages.length;
+
+        imageWriter.prepareWriteSequence(null);
+        for (int i = 0; i < numImagePages; i++) {
+          BufferedImage imagePage = imagePages[i];
+
+          IIOImage iioImage = new IIOImage(imagePage, null, null);
+          imageWriter.writeToSequence(iioImage, imageWriteParam);
+        }
+        imageWriter.endWriteSequence();
+      } else {
+        throw new UnsupportedOperationException("Only support to wirte the mulitpage file with TIFF or GIF");
+      }
+    } catch (IOException e) {
+      if (imageWriter != null) {
+        imageWriter.abort();
+      }
+
+      throw e;
+    } finally {
+      if (imageWriter != null) {
+        imageWriter.dispose();
+      }
+    }
   }
 
   private static ImageReader getImageReader(FileInputStream fis) throws IOException {
