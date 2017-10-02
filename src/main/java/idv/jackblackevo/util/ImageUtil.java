@@ -363,6 +363,7 @@ public class ImageUtil {
 
       base64StringList.add(base64StringPage);
     }
+    imagesDetail.close();
 
     return base64StringList;
   }
