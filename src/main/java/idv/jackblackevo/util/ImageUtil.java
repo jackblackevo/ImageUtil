@@ -153,19 +153,19 @@ public class ImageUtil {
       return this;
     }
 
-    public File writeToMultipageTIFF(String destLocation, boolean isCloseBuilderAfterWrote) throws IOException {
-      return writeToMultipageTIFF(destLocation, -1, isCloseBuilderAfterWrote);
+    public File combineAndWriteToMultipageTIFF(String destLocation, boolean isCloseBuilderAfterWrote) throws IOException {
+      return combineAndWriteToMultipageTIFF(destLocation, -1, isCloseBuilderAfterWrote);
     }
 
-    public File writeToMultipageTIFF(File destLocation, boolean isCloseBuilderAfterWrote) throws IOException {
-      return writeToMultipageTIFF(destLocation, -1, isCloseBuilderAfterWrote);
+    public File combineAndWriteToMultipageTIFF(File destLocation, boolean isCloseBuilderAfterWrote) throws IOException {
+      return combineAndWriteToMultipageTIFF(destLocation, -1, isCloseBuilderAfterWrote);
     }
 
-    public File writeToMultipageTIFF(String destLocation, float quality, boolean isCloseBuilderAfterWrote) throws IOException {
-      return writeToMultipageTIFF(new File(destLocation), quality, isCloseBuilderAfterWrote);
+    public File combineAndWriteToMultipageTIFF(String destLocation, float quality, boolean isCloseBuilderAfterWrote) throws IOException {
+      return combineAndWriteToMultipageTIFF(new File(destLocation), quality, isCloseBuilderAfterWrote);
     }
 
-    public File writeToMultipageTIFF(File destLocation, float quality, boolean isCloseBuilderAfterWrote) throws IOException {
+    public File combineAndWriteToMultipageTIFF(File destLocation, float quality, boolean isCloseBuilderAfterWrote) throws IOException {
       if (isClosed) {
         throw new UnsupportedOperationException("Builder is closed!");
       }

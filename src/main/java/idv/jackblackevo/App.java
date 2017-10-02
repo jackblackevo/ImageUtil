@@ -34,7 +34,7 @@ public class App {
     imageBuilder = imageBuilder.resize(imageTargetWidth, imageTargetHeight);
 
     if (imageTargetMultipage) {
-      imageBuilder.writeToMultipageTIFF(imageOutput, imageTargetQuality, true);
+      imageBuilder.combineAndWriteToMultipageTIFF(imageOutput, imageTargetQuality, true);
     } else {
       imageBuilder.writeToFiles(imageOutput, exportImageFormat, imageTargetQuality, true);
     }
