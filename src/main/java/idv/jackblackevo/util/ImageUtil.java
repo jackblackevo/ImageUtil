@@ -170,6 +170,12 @@ public class ImageUtil {
         throw new UnsupportedOperationException("Builder is closed!");
       }
 
+      if (checkDestLocationIsExists(destLocation)) {
+        if (!checkDestLocationIsDirectory(destLocation)) {
+          throw new UnsupportedOperationException("Destination location is not a directory!");
+        }
+      }
+
       SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd_hh_mm_ss");
       File destFile = new File(destLocation.getPath() + File.separator + OUTPUT_PREFIX + COMBINE_PREFIX + sdf.format(Calendar.getInstance().getTime()) + ".tiff");
 
@@ -247,6 +253,12 @@ public class ImageUtil {
     public List<File> writeToFiles(File destLocation, String fileType, float quality, boolean isCloseBuilderAfterWrote) throws IOException {
       if (isClosed) {
         throw new UnsupportedOperationException("Builder is closed!");
+      }
+
+      if (checkDestLocationIsExists(destLocation)) {
+        if (!checkDestLocationIsDirectory(destLocation)) {
+          throw new UnsupportedOperationException("Destination location is not a directory!");
+        }
       }
 
       List<File> newImageFileList = new ArrayList<>();
@@ -638,5 +650,25 @@ public class ImageUtil {
     double ratio = Math.min(widthRatio, heightRatio);
 
     return new Dimension((int) (imageSize.width * ratio), (int) (imageSize.height * ratio));
+  }
+
+  private static boolean checkDestLocationIsExists(File destLocation) throws IIOException {
+    if (!destLocation.exists()) {
+      if (!destLocation.mkdirs()) {
+        throw new IIOException("Can not create destination directory!");
+      }
+
+      return false;
+    }
+
+    return true;
+  }
+
+  private static boolean checkDestLocationIsDirectory(File destLocation) {
+    if (!destLocation.isDirectory()) {
+      return false;
+    }
+
+    return true;
   }
 }
