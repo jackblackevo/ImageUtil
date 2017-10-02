@@ -26,10 +26,6 @@ class ImageData {
     return imageType;
   }
 
-  public void setImageType(String imageType) {
-    this.imageType = imageType;
-  }
-
   public BufferedImage[] getImagePages() {
     return imagePages;
   }

@@ -31,6 +31,7 @@ public class ImageUtil {
   public static class Builder {
     private static final String OUTPUT_PREFIX = "output_";
     private static final String RESIZE_PREFIX = "resize_";
+    private static final String ROTATE_PREFIX = "rotate_";
     private static final String COMBINE_PREFIX = "combine_";
 
     private boolean isClosed = false;
@@ -79,7 +80,6 @@ public class ImageUtil {
       while (imageDetailListIterator.hasNext()) {
         ImageData imageData = imageDetailListIterator.next();
         String fileName = imageData.getFileName();
-        String imageType = imageData.getImageType();
         BufferedImage[] imagePages = imageData.getImagePages();
 
         int numImagePages = imagePages.length;
@@ -98,7 +98,6 @@ public class ImageUtil {
         }
 
         imageData.setFileName(RESIZE_PREFIX + fileName);
-        imageData.setImageType(imageType);
         imageData.setImagePages(newImagePages);
       }
 
@@ -114,7 +113,6 @@ public class ImageUtil {
       while (imageDetailListIterator.hasNext()) {
         ImageData imageData = imageDetailListIterator.next();
         String fileName = imageData.getFileName();
-        String imageType = imageData.getImageType();
         BufferedImage[] imagePages = imageData.getImagePages();
 
         int numImagePages = imagePages.length;
@@ -148,8 +146,7 @@ public class ImageUtil {
           }
         }
 
-        imageData.setFileName(fileName);
-        imageData.setImageType(imageType);
+        imageData.setFileName(ROTATE_PREFIX + fileName);
         imageData.setImagePages(newImagePages);
       }
 
