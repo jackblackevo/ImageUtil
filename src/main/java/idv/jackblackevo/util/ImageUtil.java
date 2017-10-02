@@ -485,10 +485,6 @@ public class ImageUtil {
     return new ImageData(fileName, formatName, imagePages);
   }
 
-  private static byte[] writeImageToByteArray(String originImageType, BufferedImage imagePage) throws IOException {
-    return writeImageToByteArray(originImageType, new BufferedImage[]{imagePage});
-  }
-
   private static byte[] writeImageToByteArray(String originImageType, BufferedImage[] imagePages) throws IOException {
     ByteArrayOutputStream bao = new ByteArrayOutputStream();
     ImageOutputStream ios = ImageIO.createImageOutputStream(bao);
