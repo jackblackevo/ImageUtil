@@ -171,11 +171,11 @@ public class ImageUtil {
       }
 
       SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd_hh_mm_ss");
-      File newFile = new File(destLocation.getPath() + File.separator + OUTPUT_PREFIX + COMBINE_PREFIX + sdf.format(Calendar.getInstance().getTime()) + ".tiff");
+      File destFile = new File(destLocation.getPath() + File.separator + OUTPUT_PREFIX + COMBINE_PREFIX + sdf.format(Calendar.getInstance().getTime()) + ".tiff");
 
       ImageWriter imageWriter = null;
       try (
-        ImageOutputStream ios = ImageIO.createImageOutputStream(newFile)
+        ImageOutputStream ios = ImageIO.createImageOutputStream(destFile)
       ) {
         imageWriter = getImageWriter("TIFF", ios);
 
@@ -185,9 +185,22 @@ public class ImageUtil {
         imageWriter.prepareWriteSequence(null);
         Iterator<ImageData> imageDetailIterator = imageDataList.iterator();
         while (imageDetailIterator.hasNext()) {
-          BufferedImage[] imagePages = imageDetailIterator.next().getImagePages();
+          ImageData imageData = imageDetailIterator.next();
+          String originImageType = imageData.getImageType();
+          BufferedImage[] imagePages = imageData.getImagePages();
+
+          boolean isOriginPNG = "PNG".equalsIgnoreCase(originImageType);
+
           for (int i = 0; i < imagePages.length; i++) {
-            IIOImage iioImage = new IIOImage(imagePages[i], null, null);
+            BufferedImage imagePage = imagePages[i];
+            if (isOriginPNG) {
+              BufferedImage imagePageWithWiteBG = ignoreTransparentBG(imagePage);
+
+              imagePage.flush();
+              imagePage = imagePageWithWiteBG;
+            }
+
+            IIOImage iioImage = new IIOImage(imagePage, null, null);
             imageWriter.writeToSequence(iioImage, params);
           }
         }
@@ -208,7 +221,7 @@ public class ImageUtil {
         close();
       }
 
-      return newFile;
+      return destFile;
     }
 
     public List<File> writeToFiles(String destLocation, boolean isCloseBuilderAfterWrote) throws IOException {
@@ -241,20 +254,21 @@ public class ImageUtil {
       Iterator<ImageData> imageDetailListIterator = imageDataList.iterator();
       while (imageDetailListIterator.hasNext()) {
         ImageData imageData = imageDetailListIterator.next();
-        String imageType = imageData.getImageType();
+        String originImageType = imageData.getImageType();
         BufferedImage[] imagePages = imageData.getImagePages();
 
+        String targetImageType = originImageType;
         if (fileType != null && !"".equals(fileType)) {
-          imageType = fileType;
+          targetImageType = fileType;
         }
 
         int numImagePages = imagePages.length;
 
-        boolean isTIFF = "TIF".equalsIgnoreCase(imageType) || "TIFF".equalsIgnoreCase(imageType);
-        if (isTIFF || "GIF".equalsIgnoreCase(imageType)) {
-          File destFile = new File(destLocation.getPath() + File.separator + OUTPUT_PREFIX + imageData.getFileName() + "." + imageType);
+        boolean isTargetTIFF = "TIF".equalsIgnoreCase(targetImageType) || "TIFF".equalsIgnoreCase(targetImageType);
+        if (isTargetTIFF || "GIF".equalsIgnoreCase(targetImageType)) {
+          File destFile = new File(destLocation.getPath() + File.separator + OUTPUT_PREFIX + imageData.getFileName() + "." + targetImageType);
 
-          writeImageToFile(destFile, imageType, quality, imagePages);
+          writeImageToFile(destFile, originImageType, targetImageType, quality, imagePages);
 
           newImageFileList.add(destFile);
         } else {
@@ -264,10 +278,10 @@ public class ImageUtil {
               page = "";
             }
 
-            File pageDestFile = new File(destLocation.getPath() + File.separator + OUTPUT_PREFIX + imageData.getFileName() + page + "." + imageType);
+            File pageDestFile = new File(destLocation.getPath() + File.separator + OUTPUT_PREFIX + imageData.getFileName() + page + "." + targetImageType);
             BufferedImage imagePage = imagePages[i];
 
-            writeImageToFile(pageDestFile, imageType, quality, imagePage);
+            writeImageToFile(pageDestFile, originImageType, targetImageType, quality, imagePage);
 
             newImageFileList.add(pageDestFile);
           }
@@ -459,23 +473,23 @@ public class ImageUtil {
     return new ImageData(fileName, formatName, imagePages);
   }
 
-  private static byte[] writeImageToByteArray(String imageType, BufferedImage imagePage) throws IOException {
-    return writeImageToByteArray(imageType, new BufferedImage[]{imagePage});
+  private static byte[] writeImageToByteArray(String originImageType, BufferedImage imagePage) throws IOException {
+    return writeImageToByteArray(originImageType, new BufferedImage[]{imagePage});
   }
 
-  private static byte[] writeImageToByteArray(String imageType, BufferedImage[] imagePages) throws IOException {
+  private static byte[] writeImageToByteArray(String originImageType, BufferedImage[] imagePages) throws IOException {
     ByteArrayOutputStream bao = new ByteArrayOutputStream();
     ImageOutputStream ios = ImageIO.createImageOutputStream(bao);
-    writeImage(ios, imageType, -1, imagePages);
+    writeImage(ios, originImageType, originImageType, -1, imagePages);
 
     return bao.toByteArray();
   }
 
-  private static void writeImageToFile(File destFile, String imageType, float quality, BufferedImage imagePage) throws IOException {
-    writeImageToFile(destFile, imageType, quality, new BufferedImage[]{imagePage});
+  private static void writeImageToFile(File destFile, String originImageType, String targetImageType, float quality, BufferedImage imagePage) throws IOException {
+    writeImageToFile(destFile, originImageType, targetImageType, quality, new BufferedImage[]{imagePage});
   }
 
-  private static void writeImageToFile(File destFile, String imageType, float quality, BufferedImage[] imagePages) throws IOException {
+  private static void writeImageToFile(File destFile, String originImageType, String targetImageType, float quality, BufferedImage[] imagePages) throws IOException {
     File destLocation = destFile.getParentFile();
     if (!destLocation.exists()) {
       if (destLocation.mkdirs()) {
@@ -485,37 +499,47 @@ public class ImageUtil {
       throw new UnsupportedOperationException("Destination location is not a directory!");
     }
 
-    boolean isWriteMultipage = imagePages.length > 1;
-    boolean isTIFF = "TIF".equalsIgnoreCase(imageType) || "TIFF".equalsIgnoreCase(imageType);
-
-    ImageWriter imageWriter = null;
     ImageOutputStream ios = ImageIO.createImageOutputStream(destFile);
-    writeImage(ios, imageType, quality, imagePages);
+    writeImage(ios, originImageType, targetImageType, quality, imagePages);
   }
 
-  private static void writeImage(ImageOutputStream ios, String imageType, float quality, BufferedImage[] imagePages) throws IOException {
+  private static void writeImage(ImageOutputStream ios, String originImageType, String targetImageType, float quality, BufferedImage[] imagePages) throws IOException {
     boolean isWriteMultipage = imagePages.length > 1;
-    boolean isTIFF = "TIF".equalsIgnoreCase(imageType) || "TIFF".equalsIgnoreCase(imageType);
+    boolean isTargetTIFF = "TIF".equalsIgnoreCase(targetImageType) || "TIFF".equalsIgnoreCase(targetImageType);
+    boolean isOriginPNG = "PNG".equalsIgnoreCase(originImageType);
 
     ImageWriter imageWriter = null;
     try {
-      imageWriter = getImageWriter(imageType, ios);
+      imageWriter = getImageWriter(targetImageType, ios);
 
       ImageWriteParam imageWriteParam = imageWriter.getDefaultWriteParam();
-      if (isTIFF && imageWriteParam.canWriteCompressed()) {
+      if (isTargetTIFF && imageWriteParam.canWriteCompressed()) {
         setImageWriteParamCompression(imageWriteParam, quality);
       }
 
       if (!isWriteMultipage) {
         BufferedImage imagePage = imagePages[0];
+        if (isOriginPNG) {
+          BufferedImage imagePageWithWiteBG = ignoreTransparentBG(imagePage);
+
+          imagePage.flush();
+          imagePage = imagePageWithWiteBG;
+        }
+
         IIOImage iioImage = new IIOImage(imagePage, null, null);
         imageWriter.write(null, iioImage, imageWriteParam);
-      } else if (isTIFF || "GIF".equalsIgnoreCase(imageType)) {
+      } else if (isTargetTIFF || "GIF".equalsIgnoreCase(targetImageType)) {
         int numImagePages = imagePages.length;
 
         imageWriter.prepareWriteSequence(null);
         for (int i = 0; i < numImagePages; i++) {
           BufferedImage imagePage = imagePages[i];
+          if (isOriginPNG) {
+            BufferedImage imagePageWithWiteBG = ignoreTransparentBG(imagePage);
+
+            imagePage.flush();
+            imagePage = imagePageWithWiteBG;
+          }
 
           IIOImage iioImage = new IIOImage(imagePage, null, null);
           imageWriter.writeToSequence(iioImage, imageWriteParam);
@@ -549,6 +573,16 @@ public class ImageUtil {
         imageWriter.dispose();
       }
     }
+  }
+
+  private static BufferedImage ignoreTransparentBG(BufferedImage image) {
+    // 乎略 PNG 透明背景
+    BufferedImage newBufferedImage = new BufferedImage(image.getWidth(), image.getHeight(), BufferedImage.TYPE_INT_RGB);
+    Graphics2D graphics = newBufferedImage.createGraphics();
+    graphics.drawImage(image, 0, 0, Color.WHITE, null);
+    graphics.dispose();
+
+    return newBufferedImage;
   }
 
   private static ImageReader getImageReader(FileInputStream fis) throws IOException {
