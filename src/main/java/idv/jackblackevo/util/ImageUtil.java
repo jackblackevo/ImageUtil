@@ -416,6 +416,8 @@ public class ImageUtil {
           imageDataList.add(imageData);
         }
       } catch (UnsupportedOperationException e) {
+        System.out.println(e.getMessage() + " Try to read as PDF...");
+
         // PDF
         try (
           PDDocument document = PDDocument.load(imageFile)
@@ -432,10 +434,8 @@ public class ImageUtil {
           ImageData imageData = new ImageData(imageFile.getName().replaceFirst("\\.[^.]+$", ""), "TIFF", imagePages);
           imageDataList.add(imageData);
         } catch (InvalidPasswordException ee) {
-          System.out.println(e.getMessage() + " Try to read as PDF...");
           System.out.println(ee.getMessage() + " Skipped file: " + imageFile.getPath());
         } catch (IOException ee) {
-          System.out.println(e.getMessage() + " Try to read as PDF...");
           System.out.println(ee.getMessage() + " Skipped file: " + imageFile.getPath());
         }
 
