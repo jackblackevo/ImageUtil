@@ -563,22 +563,16 @@ public class ImageUtil {
 
       throw e;
     } finally {
-      if (ios != null) {
-        try {
-          ios.flush();
-        } catch (IOException e) {
-          throw e;
-        }
+      if (imageWriter != null) {
+        imageWriter.dispose();
+      }
 
+      if (ios != null) {
         try {
           ios.close();
         } catch (IOException e) {
           throw e;
         }
-      }
-
-      if (imageWriter != null) {
-        imageWriter.dispose();
       }
     }
   }
