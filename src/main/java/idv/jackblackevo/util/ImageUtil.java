@@ -21,14 +21,7 @@ import java.util.*;
 import java.util.List;
 
 public class ImageUtil {
-  private enum Orientation {
-    Portrait, Landscape
-  }
-
-  public static final Orientation PORTRAIT = Orientation.Portrait;
-  public static final Orientation LANDSCAPE = Orientation.Landscape;
-
-  public static class Builder {
+  private static class Builder implements ImageBuilder {
     private static final String OUTPUT_PREFIX = "output_";
     private static final String RESIZE_PREFIX = "resize_";
     private static final String ROTATE_PREFIX = "rotate_";
@@ -41,6 +34,7 @@ public class ImageUtil {
       this.imageDataList = imageDataList;
     }
 
+    @Override
     public void close() {
       if (isClosed) {
         throw new UnsupportedOperationException("Builder is closed!");
@@ -63,10 +57,12 @@ public class ImageUtil {
       isClosed = true;
     }
 
+    @Override
     public boolean checkIsClosed() {
       return isClosed;
     }
 
+    @Override
     public Builder resize(int width, int height) throws IOException {
       if (isClosed) {
         throw new UnsupportedOperationException("Builder is closed!");
@@ -104,6 +100,7 @@ public class ImageUtil {
       return this;
     }
 
+    @Override
     public Builder rotate(Orientation orientation) {
       if (isClosed) {
         throw new UnsupportedOperationException("Builder is closed!");
@@ -153,18 +150,22 @@ public class ImageUtil {
       return this;
     }
 
+    @Override
     public File combineAndWriteToMultipageTIFF(String destLocation, boolean isCloseBuilderAfterWrote) throws IOException {
       return combineAndWriteToMultipageTIFF(destLocation, -1, isCloseBuilderAfterWrote);
     }
 
+    @Override
     public File combineAndWriteToMultipageTIFF(File destLocation, boolean isCloseBuilderAfterWrote) throws IOException {
       return combineAndWriteToMultipageTIFF(destLocation, -1, isCloseBuilderAfterWrote);
     }
 
+    @Override
     public File combineAndWriteToMultipageTIFF(String destLocation, float quality, boolean isCloseBuilderAfterWrote) throws IOException {
       return combineAndWriteToMultipageTIFF(new File(destLocation), quality, isCloseBuilderAfterWrote);
     }
 
+    @Override
     public File combineAndWriteToMultipageTIFF(File destLocation, float quality, boolean isCloseBuilderAfterWrote) throws IOException {
       if (isClosed) {
         throw new UnsupportedOperationException("Builder is closed!");
@@ -230,26 +231,32 @@ public class ImageUtil {
       return destFile;
     }
 
+    @Override
     public List<File> writeToFiles(String destLocation, boolean isCloseBuilderAfterWrote) throws IOException {
       return writeToFiles(destLocation, null, isCloseBuilderAfterWrote);
     }
 
+    @Override
     public List<File> writeToFiles(File destLocation, boolean isCloseBuilderAfterWrote) throws IOException {
       return writeToFiles(destLocation, null, isCloseBuilderAfterWrote);
     }
 
+    @Override
     public List<File> writeToFiles(String destLocation, String fileType, boolean isCloseBuilderAfterWrote) throws IOException {
       return writeToFiles(destLocation, fileType, -1, isCloseBuilderAfterWrote);
     }
 
+    @Override
     public List<File> writeToFiles(File destLocation, String fileType, boolean isCloseBuilderAfterWrote) throws IOException {
       return writeToFiles(destLocation, fileType, -1, isCloseBuilderAfterWrote);
     }
 
+    @Override
     public List<File> writeToFiles(String destLocation, String fileType, float quality, boolean isCloseBuilderAfterWrote) throws IOException {
       return writeToFiles(new File(destLocation), fileType, quality, isCloseBuilderAfterWrote);
     }
 
+    @Override
     public List<File> writeToFiles(File destLocation, String fileType, float quality, boolean isCloseBuilderAfterWrote) throws IOException {
       if (isClosed) {
         throw new UnsupportedOperationException("Builder is closed!");
@@ -307,6 +314,7 @@ public class ImageUtil {
       return newImageFileList;
     }
 
+    @Override
     public List<String> convertToBase64() {
       if (isClosed) {
         throw new UnsupportedOperationException("Builder is closed!");
@@ -316,7 +324,14 @@ public class ImageUtil {
     }
   }
 
-  public static Builder fromSrc(String src, String... srcs) {
+  /**
+   * 讀取圖片建立 ImageBuilder。
+   *
+   * @param src  圖片路徑
+   * @param srcs 更多圖片路徑
+   * @return ImageBuilder
+   */
+  public static ImageBuilder fromSrc(String src, String... srcs) {
     File imageSource = new File(src);
     File[] imageSources = new File[srcs.length];
     for (int i = 0; i < srcs.length; i++) {
@@ -326,7 +341,14 @@ public class ImageUtil {
     return fromSrc(imageSource, imageSources);
   }
 
-  public static Builder fromSrc(File imageFile, File... imageFiles) {
+  /**
+   * 讀取圖片建立 ImageBuilder。
+   *
+   * @param imageFile  圖片
+   * @param imageFiles 更多圖片
+   * @return ImageBuilder
+   */
+  public static ImageBuilder fromSrc(File imageFile, File... imageFiles) {
     List<File> imageFileList = new ArrayList(Arrays.asList(imageFiles));
     imageFileList.add(0, imageFile);
 
@@ -340,12 +362,24 @@ public class ImageUtil {
     return builder;
   }
 
+  /**
+   * 讀取圖片轉換成 base64 字串。
+   *
+   * @param src 圖片路徑
+   * @return base64 字串
+   */
   public static String convertImageToBase64String(String src) {
     File file = new File(src);
 
     return convertImageToBase64String(file);
   }
 
+  /**
+   * 讀取圖片轉換成 base64 字串。
+   *
+   * @param src 圖片
+   * @return base64 字串
+   */
   public static String convertImageToBase64String(File src) {
     String base64String = "";
 

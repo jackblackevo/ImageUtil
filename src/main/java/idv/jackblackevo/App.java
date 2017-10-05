@@ -1,5 +1,6 @@
 package idv.jackblackevo;
 
+import idv.jackblackevo.util.ImageBuilder;
 import idv.jackblackevo.util.ImageUtil;
 
 import java.net.URL;
@@ -23,12 +24,12 @@ public class App {
 
     boolean imageTargetMultipage = Boolean.parseBoolean(prop.getProperty("image.output.multipage"));
 
-    ImageUtil.Builder imageBuilder = ImageUtil.fromSrc(imageInput);
+    ImageBuilder imageBuilder = ImageUtil.fromSrc(imageInput);
 
     if ("landscape".equalsIgnoreCase(imageOrientation)) {
-      imageBuilder = imageBuilder.rotate(ImageUtil.LANDSCAPE);
+      imageBuilder = imageBuilder.rotate(ImageBuilder.LANDSCAPE);
     } else {
-      imageBuilder = imageBuilder.rotate(ImageUtil.PORTRAIT);
+      imageBuilder = imageBuilder.rotate(ImageBuilder.PORTRAIT);
     }
 
     imageBuilder = imageBuilder.resize(imageTargetWidth, imageTargetHeight);
